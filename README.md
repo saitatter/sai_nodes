@@ -90,7 +90,7 @@ To add **SAI Nodes** to your Flutter project, include it in your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  sai_nodes: ^0.1.0
+  sai_nodes: ^0.2.0
 ```
 
 Then, run:
@@ -160,14 +160,14 @@ Both builders return `NodeEditorMenuEntry` values, including actions, dividers,
 and nested sections. With the menu focused, Up/Down moves between enabled
 actions and Enter activates the highlighted action.
 
-The legacy `editorContextMenuBuilder` remains available for applications that
-need `flutter_context_menu` entries. Set `NodeEditorConfig.enableNodeResize` to
-show the built-in resize handle, or use `NodeResizeBuilder` for an
-application-specific handle. Node instance titles and fixed sizes are available
-as `NodeDataModel.customTitle` and `NodeDataModel.customSize`, and are included
-in node JSON. For links, prefer `sourceNodeId`, `sourcePortId`, `targetNodeId`,
-and `targetPortId` on `FromTo`; the historical tuple fields are kept for
-compatibility.
+Set `NodeEditorConfig.enableNodeResize` to show the built-in resize handle, or
+use `NodeResizeBuilder` for an application-specific handle. Node instance titles
+and fixed sizes are available as `NodeDataModel.customTitle` and
+`NodeDataModel.customSize`, and are included in node JSON. Link endpoints are
+available as `link.endpoints.sourceNodeId`, `link.endpoints.sourcePortId`,
+`link.endpoints.targetNodeId`, and `link.endpoints.targetPortId`. Optional link
+labels are available as `link.label` and can be changed with
+`NodeEditorController.setLinkLabel`.
 
 ---
 

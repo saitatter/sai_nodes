@@ -8,19 +8,13 @@ import 'package:uuid/uuid.dart';
 
 typedef LocalizedString = String Function(BuildContext context);
 
-/// Legacy link endpoint tuple.
-///
-/// The historical field names are retained for serialization compatibility.
-/// Prefer the semantic getters in [FromToEndpoints] when reading endpoints.
-typedef FromTo = ({String from, String to, String fromPort, String toPort});
-
-/// Semantic aliases for the legacy [FromTo] endpoint fields.
-extension FromToEndpoints on FromTo {
-  String get sourceNodeId => from;
-  String get sourcePortId => to;
-  String get targetNodeId => fromPort;
-  String get targetPortId => toPort;
-}
+/// The source and target endpoints of a link.
+typedef LinkEndpoints = ({
+  String sourceNodeId,
+  String sourcePortId,
+  String targetNodeId,
+  String targetPortId,
+});
 
 /// The state of a link painted on the canvas.
 class LinkState {
@@ -46,49 +40,57 @@ class LinkState {
 
 /// A link is a connection between two ports.
 final class LinkDataModel {
+  static const Object _unsetLabel = Object();
+
   final String id;
-  final FromTo fromTo;
+  final LinkEndpoints endpoints;
   final LinkState state;
+  final String? label;
 
   LinkDataModel({
     required this.id,
-    required this.fromTo,
+    required this.endpoints,
     required this.state,
+    this.label,
   });
 
   LinkDataModel copyWith({
     String? id,
-    FromTo? fromTo,
+    LinkEndpoints? endpoints,
     LinkState? state,
-    List<Offset>? joints,
+    Object? label = _unsetLabel,
   }) {
     return LinkDataModel(
       id: id ?? this.id,
-      fromTo: fromTo ?? this.fromTo,
+      endpoints: endpoints ?? this.endpoints,
       state: state ?? this.state,
+      label: label == _unsetLabel ? this.label : label as String?,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
+    final json = <String, dynamic>{
       'id': id,
-      'from': fromTo.from,
-      'to': fromTo.to,
-      'fromPort': fromTo.fromPort,
-      'toPort': fromTo.toPort,
+      'sourceNodeId': endpoints.sourceNodeId,
+      'sourcePortId': endpoints.sourcePortId,
+      'targetNodeId': endpoints.targetNodeId,
+      'targetPortId': endpoints.targetPortId,
     };
+    if (label != null) json['label'] = label;
+    return json;
   }
 
   factory LinkDataModel.fromJson(Map<String, dynamic> json) {
     return LinkDataModel(
       id: json['id'],
-      fromTo: (
-        from: json['from'],
-        to: json['to'],
-        fromPort: json['fromPort'],
-        toPort: json['toPort'],
+      endpoints: (
+        sourceNodeId: json['sourceNodeId'],
+        sourcePortId: json['sourcePortId'],
+        targetNodeId: json['targetNodeId'],
+        targetPortId: json['targetPortId'],
       ),
       state: LinkState(),
+      label: json['label']?.toString(),
     );
   }
 
@@ -98,10 +100,10 @@ final class LinkDataModel {
       other is LinkDataModel &&
           runtimeType == other.runtimeType &&
           id == other.id &&
-          fromTo == other.fromTo;
+          endpoints == other.endpoints;
 
   @override
-  int get hashCode => id.hashCode ^ fromTo.hashCode;
+  int get hashCode => id.hashCode ^ endpoints.hashCode;
 }
 
 class TempLinkDataModel {

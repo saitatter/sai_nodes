@@ -134,6 +134,13 @@ class NodeEditorHistoryHelper {
           eventId: event.id,
           isHandled: true,
         );
+      } else if (event is LinkLabelChangeEvent) {
+        controller.setLinkLabel(
+          event.linkId,
+          event.oldLabel,
+          eventId: event.id,
+          isHandled: true,
+        );
       } else if (event is AddLinkEvent) {
         controller.removeLinkById(event.link.id, eventId: event.id);
       } else if (event is RemoveLinkEvent) {
@@ -182,6 +189,13 @@ class NodeEditorHistoryHelper {
         controller.resizeNode(
           event.nodeId,
           event.newSize,
+          eventId: event.id,
+          isHandled: true,
+        );
+      } else if (event is LinkLabelChangeEvent) {
+        controller.setLinkLabel(
+          event.linkId,
+          event.newLabel,
           eventId: event.id,
           isHandled: true,
         );

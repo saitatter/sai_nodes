@@ -601,6 +601,7 @@ class NodeEditorController with ChangeNotifier {
     String node2Id,
     String port2IdName, {
     String? eventId,
+    String? label,
   }) {
     // Check for self-links
     if (node1Id == node2Id) return null;
@@ -647,38 +648,41 @@ class NodeEditorController with ChangeNotifier {
     // if this exact link already exists, don't do anything
     if (port1.links.any(
           (link) =>
-              link.fromTo.from == node2Id && link.fromTo.to == port2IdName,
+              link.endpoints.sourceNodeId == node2Id &&
+              link.endpoints.sourcePortId == port2IdName,
         ) ||
         port2.links.any(
           (link) =>
-              link.fromTo.from == node1Id && link.fromTo.to == port1IdName,
+              link.endpoints.sourceNodeId == node1Id &&
+              link.endpoints.sourcePortId == port1IdName,
         )) {
       return null;
     }
 
-    late FromTo fromTo;
+    late LinkEndpoints endpoints;
 
     // Determine the order to insert the node references in the link based on the port direction.
     if (port1.prototype.direction == PortDirection.output) {
-      fromTo = (
-        from: node1Id,
-        to: port1IdName,
-        fromPort: node2Id,
-        toPort: port2IdName
+      endpoints = (
+        sourceNodeId: node1Id,
+        sourcePortId: port1IdName,
+        targetNodeId: node2Id,
+        targetPortId: port2IdName,
       );
     } else {
-      fromTo = (
-        from: node2Id,
-        to: port2IdName,
-        fromPort: node1Id,
-        toPort: port1IdName
+      endpoints = (
+        sourceNodeId: node2Id,
+        sourcePortId: port2IdName,
+        targetNodeId: node1Id,
+        targetPortId: port1IdName,
       );
     }
 
     final link = LinkDataModel(
       id: const Uuid().v4(),
-      fromTo: fromTo,
+      endpoints: endpoints,
       state: LinkState(),
+      label: label,
     );
 
     port1.links.add(link);
@@ -710,29 +714,29 @@ class NodeEditorController with ChangeNotifier {
     bool isHandled = false,
   }) {
     if (links.containsKey(link.id) ||
-        !nodes.containsKey(link.fromTo.from) ||
-        !nodes.containsKey(link.fromTo.fromPort)) {
+        !nodes.containsKey(link.endpoints.sourceNodeId) ||
+        !nodes.containsKey(link.endpoints.targetNodeId)) {
       return;
     }
 
-    final fromNode = nodes[link.fromTo.from]!;
-    final toNode = nodes[link.fromTo.fromPort]!;
+    final fromNode = nodes[link.endpoints.sourceNodeId]!;
+    final toNode = nodes[link.endpoints.targetNodeId]!;
 
-    if (!fromNode.ports.containsKey(link.fromTo.to) ||
-        !toNode.ports.containsKey(link.fromTo.toPort)) {
+    if (!fromNode.ports.containsKey(link.endpoints.sourcePortId) ||
+        !toNode.ports.containsKey(link.endpoints.targetPortId)) {
       return;
     }
 
-    final fromPort = fromNode.ports[link.fromTo.to]!;
-    final toPort = toNode.ports[link.fromTo.toPort]!;
+    final fromPort = fromNode.ports[link.endpoints.sourcePortId]!;
+    final toPort = toNode.ports[link.endpoints.targetPortId]!;
 
     if (fromPort.links.any(
           (existing) =>
-              existing.id == link.id || existing.fromTo == link.fromTo,
+              existing.id == link.id || existing.endpoints == link.endpoints,
         ) ||
         toPort.links.any(
           (existing) =>
-              existing.id == link.id || existing.fromTo == link.fromTo,
+              existing.id == link.id || existing.endpoints == link.endpoints,
         )) {
       return;
     }
@@ -758,6 +762,42 @@ class NodeEditorController with ChangeNotifier {
     );
   }
 
+  /// Updates a link label and records the change in editor history.
+  ///
+  /// Emits a [LinkLabelChangeEvent] event.
+  void setLinkLabel(
+    String linkId,
+    String? label, {
+    String? eventId,
+    bool isHandled = false,
+  }) {
+    final link = links[linkId];
+    if (link == null || link.label == label) return;
+
+    final updatedLink = link.copyWith(label: label);
+    links[linkId] = updatedLink;
+
+    final sourcePort =
+        nodes[link.endpoints.sourceNodeId]?.ports[link.endpoints.sourcePortId];
+    final targetPort =
+        nodes[link.endpoints.targetNodeId]?.ports[link.endpoints.targetPortId];
+    sourcePort?.links.remove(link);
+    sourcePort?.links.add(updatedLink);
+    targetPort?.links.remove(link);
+    targetPort?.links.add(updatedLink);
+
+    linksDataDirty = true;
+    eventBus.emit(
+      LinkLabelChangeEvent(
+        linkId,
+        oldLabel: link.label,
+        newLabel: label,
+        id: eventId ?? const Uuid().v4(),
+        isHandled: isHandled,
+      ),
+    );
+  }
+
   /// This method is used to remove a link by its ID.
   ///
   /// Emits a [RemoveLinkEvent] event.
@@ -771,8 +811,10 @@ class NodeEditorController with ChangeNotifier {
     final link = links[id]!;
 
     // Remove the link from its associated ports
-    final fromPort = nodes[link.fromTo.from]?.ports[link.fromTo.to];
-    final toPort = nodes[link.fromTo.fromPort]?.ports[link.fromTo.toPort];
+    final fromPort =
+        nodes[link.endpoints.sourceNodeId]?.ports[link.endpoints.sourcePortId];
+    final toPort =
+        nodes[link.endpoints.targetNodeId]?.ports[link.endpoints.targetPortId];
 
     fromPort?.links.remove(link);
     toPort?.links.remove(link);
@@ -848,8 +890,6 @@ class NodeEditorController with ChangeNotifier {
     dynamic data,
     required FieldEventType eventType,
   }) {
-    if (eventType == FieldEventType.change) return;
-
     final node = nodes[nodeId]!;
     final field = node.fields[fieldId]!;
     field.data = data;

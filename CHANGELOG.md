@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0
+
+- Breaking: renamed link endpoint APIs to `LinkEndpoints endpoints` with
+  `sourceNodeId`, `sourcePortId`, `targetNodeId`, and `targetPortId` fields.
+- Breaking: link JSON now uses the semantic endpoint field names.
+- Added optional link labels with JSON persistence, configurable rendering, and
+  undoable updates through `setLinkLabel`.
+- Updated the `flutter_context_menu` integration to the 0.4.2 API.
+- Exported the public callback, project, selection, and link-label event types.
+- Fixed field change events so `setFieldData` updates the field and emits the
+  corresponding `NodeFieldEvent`.
+- Exported the `NodeEditorEvent` base type from the public package API.
+
 ## 0.1.0
 
 Initial SAI Nodes release for reusable Flutter workflow, dataflow, and shader

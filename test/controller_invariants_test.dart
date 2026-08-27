@@ -1,5 +1,4 @@
-import 'dart:ui' show Offset, Rect, Size;
-
+import 'package:flutter/widgets.dart';
 import 'package:sai_nodes/sai_nodes.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -7,11 +6,13 @@ NodePrototype _prototype({
   required String id,
   required bool input,
   required bool output,
+  List<FieldPrototype> fields = const [],
 }) =>
     NodePrototype(
       idName: id,
       displayName: (_) => id,
       description: (_) => id,
+      fields: fields,
       ports: [
         if (input)
           ControlInputPortPrototype(
@@ -47,6 +48,23 @@ void main() {
     );
     controller.registerNodePrototype(
       _prototype(id: 'target', input: true, output: false),
+    );
+    controller.registerNodePrototype(
+      _prototype(
+        id: 'field',
+        input: false,
+        output: false,
+        fields: [
+          FieldPrototype(
+            idName: 'value',
+            displayName: (_) => 'Value',
+            defaultData: 'initial',
+            visualizerBuilder: (_) => const SizedBox(),
+            editorBuilder: (context, removeOverlay, data, setData) =>
+                const SizedBox(),
+          ),
+        ],
+      ),
     );
   });
 
@@ -87,10 +105,10 @@ void main() {
     final link = controller.addLink(source.id, 'out', target.id, 'in');
 
     expect(link, isNotNull);
-    expect(link!.fromTo.sourceNodeId, source.id);
-    expect(link.fromTo.sourcePortId, 'out');
-    expect(link.fromTo.targetNodeId, target.id);
-    expect(link.fromTo.targetPortId, 'in');
+    expect(link!.endpoints.sourceNodeId, source.id);
+    expect(link.endpoints.sourcePortId, 'out');
+    expect(link.endpoints.targetNodeId, target.id);
+    expect(link.endpoints.targetPortId, 'in');
     controller.addLinkFromExisting(link);
 
     expect(controller.links, hasLength(1));
@@ -103,11 +121,11 @@ void main() {
     final target = controller.addNode('target');
     final link = LinkDataModel(
       id: 'restored-link',
-      fromTo: (
-        from: source.id,
-        to: 'out',
-        fromPort: target.id,
-        toPort: 'in',
+      endpoints: (
+        sourceNodeId: source.id,
+        sourcePortId: 'out',
+        targetNodeId: target.id,
+        targetPortId: 'in',
       ),
       state: LinkState(),
     );
@@ -125,13 +143,42 @@ void main() {
     final link = controller.addLink(source.id, 'out', target.id, 'in')!;
     final duplicate = LinkDataModel(
       id: 'different-id',
-      fromTo: link.fromTo,
+      endpoints: link.endpoints,
       state: LinkState(),
     );
 
     controller.addLinkFromExisting(duplicate);
 
     expect(controller.links, hasLength(1));
+  });
+
+  test('link labels are optional, persistent, and undoable', () async {
+    final source = controller.addNode('source');
+    final target = controller.addNode('target');
+    final link = controller.addLink(
+      source.id,
+      'out',
+      target.id,
+      'in',
+      label: 'Result value',
+    )!;
+
+    expect(link.label, 'Result value');
+    expect(link.toJson()['label'], 'Result value');
+
+    final restored = LinkDataModel.fromJson(link.toJson());
+    expect(restored.label, 'Result value');
+    expect(link.copyWith(label: null).label, isNull);
+
+    controller.setLinkLabel(link.id, 'Updated value');
+    expect(controller.links[link.id]!.label, 'Updated value');
+
+    await Future<void>.delayed(Duration.zero);
+    controller.history.undo();
+    expect(controller.links[link.id]!.label, 'Result value');
+
+    controller.history.redo();
+    expect(controller.links[link.id]!.label, 'Updated value');
   });
 
   test('selection ignores IDs that are not in the current project', () {
@@ -259,6 +306,28 @@ void main() {
 
     controller.history.redo();
     expect(controller.nodes[source.id]!.customSize, const Size(100, 200));
+  });
+
+  test('field changes update data and emit a change event', () async {
+    final node = controller.addNode('field');
+    final events = <NodeEditorEvent>[];
+    final subscription = controller.eventBus.events.listen(events.add);
+
+    controller.setFieldData(
+      node.id,
+      'value',
+      data: 'changed',
+      eventType: FieldEventType.change,
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(node.fields['value']!.data, 'changed');
+    final fieldEvents = events.whereType<NodeFieldEvent>();
+    expect(fieldEvents, hasLength(1));
+    expect(fieldEvents.single.value, 'changed');
+    expect(fieldEvents.single.eventType, FieldEventType.change);
+
+    await subscription.cancel();
   });
 
   test('deleting entities removes stale selections', () {

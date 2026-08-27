@@ -8,19 +8,19 @@ void createAndShowContextMenu(
   BuildContext context, {
   required List<ContextMenuEntry> entries,
   required Offset position,
-  Function(String? value)? onDismiss,
+  ValueChanged<dynamic>? onDismiss,
 }) async {
   if (isContextMenuVisible) return;
 
   isContextMenuVisible = true;
 
-  final menu = ContextMenu(
+  final menu = ContextMenu<dynamic>(
     entries: entries,
     position: position,
     padding: const EdgeInsets.all(8),
   );
 
-  final copiedValue = await showContextMenu(
+  final copiedValue = await showContextMenu<dynamic>(
     context,
     contextMenu: menu,
   ).then((value) {

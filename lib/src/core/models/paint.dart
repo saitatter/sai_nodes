@@ -7,12 +7,14 @@ class LinkPaintModel {
   final Offset outPortOffset;
   final Offset inPortOffset;
   final LinkStyle linkStyle;
+  final String? label;
 
   LinkPaintModel({
     required this.id,
     required this.outPortOffset,
     required this.inPortOffset,
     required this.linkStyle,
+    this.label,
   });
 }
 

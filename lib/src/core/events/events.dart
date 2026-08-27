@@ -392,16 +392,28 @@ final class RemoveLinkEvent extends NodeEditorEvent {
   }
 }
 
+/// Event produced when a link label changes.
+final class LinkLabelChangeEvent extends NodeEditorEvent {
+  final String linkId;
+  final String? oldLabel;
+  final String? newLabel;
+
+  const LinkLabelChangeEvent(
+    this.linkId, {
+    required this.oldLabel,
+    required this.newLabel,
+    required super.id,
+    super.isHandled,
+  }) : super(isUndoable: true);
+}
+
 /// Event produced when the user collapses or expands a group of nodes (can be used for any widget changes that require layout updates).
 final class CollapseNodeEvent extends NodeEditorEvent {
-  /// Legacy misspelled field retained for source compatibility.
-  final bool collpased;
+  final bool collapsed;
   final Set<String> nodeIds;
 
-  bool get collapsed => collpased;
-
   const CollapseNodeEvent(
-    this.collpased,
+    this.collapsed,
     this.nodeIds, {
     required super.id,
     super.isHandled,

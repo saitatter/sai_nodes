@@ -132,8 +132,8 @@ class NodeEditorExecutionHelper {
     for (final link in port.links) {
       final connectedNode = nodes[
           port.prototype.direction == PortDirection.input
-              ? link.fromTo.from
-              : link.fromTo.fromPort]!;
+              ? link.endpoints.sourceNodeId
+              : link.endpoints.targetNodeId]!;
       connectedNodeIds.add(connectedNode.id);
     }
 
@@ -242,8 +242,9 @@ class NodeEditorExecutionHelper {
         }
 
         for (final link in port.links) {
-          final connectedNode = nodes[link.fromTo.fromPort]!;
-          final connectedPort = connectedNode.ports[link.fromTo.toPort]!;
+          final connectedNode = nodes[link.endpoints.targetNodeId]!;
+          final connectedPort =
+              connectedNode.ports[link.endpoints.targetPortId]!;
 
           connectedPort.data = data;
         }

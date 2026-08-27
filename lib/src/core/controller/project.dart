@@ -107,6 +107,7 @@ class NodeEditorProjectHelper {
         event is RemoveNodeEvent ||
         event is AddLinkEvent ||
         event is RemoveLinkEvent ||
+        event is LinkLabelChangeEvent ||
         event is DragSelectionEndEvent ||
         event is NodeRenameEvent ||
         event is NodeResizeEvent ||

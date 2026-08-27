@@ -60,10 +60,6 @@ typedef NodeMenuBuilder = List<NodeEditorMenuEntry> Function(
   NodeDataModel node,
 );
 
-/// Compatibility alias for the original node-menu builder name.
-@Deprecated('Use NodeMenuBuilder instead.')
-typedef NodeEditorNodeMenuBuilder = NodeMenuBuilder;
-
 /// Returns menu entries whose labels or search text match [query].
 ///
 /// Section labels match the complete section, while a child match keeps only

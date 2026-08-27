@@ -413,11 +413,56 @@ NodeStyle defaultNodeStyleBuilder(NodeState state) {
           : const NodeStyle.basic();
 }
 
+class LinkLabelStyle {
+  final TextStyle textStyle;
+  final Color backgroundColor;
+  final EdgeInsets padding;
+  final BorderRadius borderRadius;
+  final double maxWidth;
+
+  const LinkLabelStyle({
+    required this.textStyle,
+    required this.backgroundColor,
+    required this.padding,
+    required this.borderRadius,
+    required this.maxWidth,
+  });
+
+  const factory LinkLabelStyle.basic() = LinkLabelStyle._constBasic;
+
+  const LinkLabelStyle._constBasic()
+      : textStyle = const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+        ),
+        backgroundColor = const Color(0xDD263238),
+        padding = const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        borderRadius = const BorderRadius.all(Radius.circular(4)),
+        maxWidth = 240;
+
+  LinkLabelStyle copyWith({
+    TextStyle? textStyle,
+    Color? backgroundColor,
+    EdgeInsets? padding,
+    BorderRadius? borderRadius,
+    double? maxWidth,
+  }) {
+    return LinkLabelStyle(
+      textStyle: textStyle ?? this.textStyle,
+      backgroundColor: backgroundColor ?? this.backgroundColor,
+      padding: padding ?? this.padding,
+      borderRadius: borderRadius ?? this.borderRadius,
+      maxWidth: maxWidth ?? this.maxWidth,
+    );
+  }
+}
+
 class NodeEditorStyle {
   final BoxDecoration decoration;
   final EdgeInsetsGeometry padding;
   final GridStyle gridStyle;
   final HighlightAreaStyle highlightAreaStyle;
+  final LinkLabelStyle linkLabelStyle;
 
   const NodeEditorStyle({
     this.decoration = const BoxDecoration(
@@ -433,6 +478,7 @@ class NodeEditorStyle {
     this.padding = const EdgeInsets.all(0.0),
     this.gridStyle = const GridStyle.basic(),
     this.highlightAreaStyle = const HighlightAreaStyle.basic(),
+    this.linkLabelStyle = const LinkLabelStyle.basic(),
   });
 
   NodeEditorStyle copyWith({
@@ -440,12 +486,14 @@ class NodeEditorStyle {
     EdgeInsetsGeometry? padding,
     GridStyle? gridStyle,
     HighlightAreaStyle? highlightAreaStyle,
+    LinkLabelStyle? linkLabelStyle,
   }) {
     return NodeEditorStyle(
       decoration: decoration ?? this.decoration,
       padding: padding ?? this.padding,
       gridStyle: gridStyle ?? this.gridStyle,
       highlightAreaStyle: highlightAreaStyle ?? this.highlightAreaStyle,
+      linkLabelStyle: linkLabelStyle ?? this.linkLabelStyle,
     );
   }
 }

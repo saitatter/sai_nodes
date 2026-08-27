@@ -426,9 +426,9 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
     return [
       MenuHeader(text: strings.nodeMenuLabel),
       MenuItem(
-        label: strings.seeNodeDescriptionAction,
-        icon: Icons.info,
-        onSelected: () {
+        label: Text(strings.seeNodeDescriptionAction),
+        icon: const Icon(Icons.info),
+        onSelected: (_) {
           showDialog(
             context: context,
             builder: (context) {
@@ -448,20 +448,24 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
       ),
       const MenuDivider(),
       MenuItem(
-        label: widget.node.state.isCollapsed
-            ? strings.expandNodeAction
-            : strings.collapseNodeAction,
-        icon: widget.node.state.isCollapsed
-            ? Icons.arrow_drop_down
-            : Icons.arrow_right,
-        onSelected: () => widget.controller
+        label: Text(
+          widget.node.state.isCollapsed
+              ? strings.expandNodeAction
+              : strings.collapseNodeAction,
+        ),
+        icon: Icon(
+          widget.node.state.isCollapsed
+              ? Icons.arrow_drop_down
+              : Icons.arrow_right,
+        ),
+        onSelected: (_) => widget.controller
             .toggleCollapseSelectedNodes(!widget.node.state.isCollapsed),
       ),
       const MenuDivider(),
       MenuItem(
-        label: strings.deleteNodeAction,
-        icon: Icons.delete,
-        onSelected: () {
+        label: Text(strings.deleteNodeAction),
+        icon: const Icon(Icons.delete),
+        onSelected: (_) {
           if (widget.node.state.isSelected) {
             widget.controller.deleteSelection();
           } else {
@@ -471,15 +475,15 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
         },
       ),
       MenuItem(
-        label: strings.cutSelectionAction,
-        icon: Icons.content_cut,
-        onSelected: () =>
+        label: Text(strings.cutSelectionAction),
+        icon: const Icon(Icons.content_cut),
+        onSelected: (_) =>
             widget.controller.clipboard.cutSelection(context: context),
       ),
       MenuItem(
-        label: strings.copySelectionAction,
-        icon: Icons.copy,
-        onSelected: () =>
+        label: Text(strings.copySelectionAction),
+        icon: const Icon(Icons.copy),
+        onSelected: (_) =>
             widget.controller.clipboard.copySelection(context: context),
       ),
     ];
@@ -514,9 +518,9 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
     return [
       MenuHeader(text: strings.portMenuLabel),
       MenuItem(
-        label: strings.cutLinksAction,
-        icon: Icons.remove_circle,
-        onSelected: () {
+        label: Text(strings.cutLinksAction),
+        icon: const Icon(Icons.remove_circle),
+        onSelected: (_) {
           widget.controller.breakPortLinks(locator.nodeId, locator.portId);
         },
       ),
@@ -553,9 +557,9 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
 
     return compatiblePrototypes.map((entry) {
       return MenuItem(
-        label: entry.value.displayName(context),
-        icon: Icons.widgets,
-        onSelected: () {
+        label: Text(entry.value.displayName(context)),
+        icon: const Icon(Icons.widgets),
+        onSelected: (_) {
           final addedNode = widget.controller.addNode(
             entry.key,
             offset: worldPosition ?? Offset.zero,

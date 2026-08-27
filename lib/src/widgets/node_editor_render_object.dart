@@ -576,6 +576,7 @@ class NodeEditorRenderBox extends RenderBox
   final Map<LinkStyle, (Path, Paint)> _solidColorsLinksBatches = {};
 
   final List<(String, Path)> _linksHitTestData = [];
+  final List<(String, Offset)> _linkLabels = [];
 
   void _paintLinks(Canvas canvas, Rect viewport) {
     // Here we collect data also for ports and children to avoid multiple loops
@@ -590,12 +591,13 @@ class NodeEditorRenderBox extends RenderBox
       _gradientLinks.clear();
       _solidColorsLinksBatches.clear();
       _linksHitTestData.clear();
+      _linkLabels.clear();
 
       for (final link in _controller.links.values) {
-        final outNode = _controller.getNodeById(link.fromTo.from)!;
-        final inNode = _controller.getNodeById(link.fromTo.fromPort)!;
-        final outPort = outNode.ports[link.fromTo.to]!;
-        final inPort = inNode.ports[link.fromTo.toPort]!;
+        final outNode = _controller.getNodeById(link.endpoints.sourceNodeId)!;
+        final inNode = _controller.getNodeById(link.endpoints.targetNodeId)!;
+        final outPort = outNode.ports[link.endpoints.sourcePortId]!;
+        final inPort = inNode.ports[link.endpoints.targetPortId]!;
 
         final Rect pathBounds = Rect.fromPoints(
           outNode.offset + outPort.offset,
@@ -611,6 +613,7 @@ class NodeEditorRenderBox extends RenderBox
             outPortOffset: outNode.offset + outPort.offset,
             inPortOffset: inNode.offset + inPort.offset,
             linkStyle: outPort.style.linkStyleBuilder(link.state),
+            label: link.label,
           ),
         );
       }
@@ -618,21 +621,16 @@ class NodeEditorRenderBox extends RenderBox
       // We don't draw the temporary link here because it should be on top of the nodes
 
       for (final data in linkData) {
-        if (data.linkStyle.gradient != null) {
-          late Path path;
-
-          switch (data.linkStyle.curveType) {
-            case LinkCurveType.straight:
-              path = PathUtils.computeStraightLinkPath(data);
-              break;
-            case LinkCurveType.bezier:
-              path = PathUtils.computeBezierLinkPath(data);
-              break;
-            case LinkCurveType.ninetyDegree:
-              path = PathUtils.computeNinetyDegreesLinkPath(data);
-              break;
+        final path = _pathForLink(data);
+        final label = data.label;
+        if (label != null && label.trim().isNotEmpty) {
+          final labelPosition = _pathMidpoint(path);
+          if (labelPosition != null) {
+            _linkLabels.add((label, labelPosition));
           }
+        }
 
+        if (data.linkStyle.gradient != null) {
           _linksHitTestData.add((data.id, path));
 
           final shader = data.linkStyle.gradient!.createShader(
@@ -657,20 +655,6 @@ class NodeEditorRenderBox extends RenderBox
             );
           });
 
-          late Path path;
-
-          switch (style.curveType) {
-            case LinkCurveType.straight:
-              path = PathUtils.computeStraightLinkPath(data);
-              break;
-            case LinkCurveType.bezier:
-              path = PathUtils.computeBezierLinkPath(data);
-              break;
-            case LinkCurveType.ninetyDegree:
-              path = PathUtils.computeNinetyDegreesLinkPath(data);
-              break;
-          }
-
           _linksHitTestData.add((data.id, path));
 
           _solidColorsLinksBatches[style]!.$1.addPath(path, Offset.zero);
@@ -685,6 +669,53 @@ class NodeEditorRenderBox extends RenderBox
     for (final entry in _solidColorsLinksBatches.entries) {
       final (path, paint) = entry.value;
       canvas.drawPath(path, paint);
+    }
+
+    _paintLinkLabels(canvas);
+  }
+
+  Path _pathForLink(LinkPaintModel data) {
+    switch (data.linkStyle.curveType) {
+      case LinkCurveType.straight:
+        return PathUtils.computeStraightLinkPath(data);
+      case LinkCurveType.bezier:
+        return PathUtils.computeBezierLinkPath(data);
+      case LinkCurveType.ninetyDegree:
+        return PathUtils.computeNinetyDegreesLinkPath(data);
+    }
+  }
+
+  Offset? _pathMidpoint(Path path) {
+    for (final metric in path.computeMetrics()) {
+      if (metric.length == 0) return null;
+      return metric.getTangentForOffset(metric.length / 2)?.position;
+    }
+    return null;
+  }
+
+  void _paintLinkLabels(Canvas canvas) {
+    final style = _controller.style.linkLabelStyle;
+    for (final (label, position) in _linkLabels) {
+      final textPainter = TextPainter(
+        text: TextSpan(text: label, style: style.textStyle),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+        ellipsis: '...',
+      )..layout(maxWidth: style.maxWidth);
+
+      final labelRect = Rect.fromCenter(
+        center: position,
+        width: textPainter.width + style.padding.horizontal,
+        height: textPainter.height + style.padding.vertical,
+      );
+      canvas.drawRRect(
+        style.borderRadius.toRRect(labelRect),
+        Paint()..color = style.backgroundColor,
+      );
+      textPainter.paint(
+        canvas,
+        labelRect.topLeft + Offset(style.padding.left, style.padding.top),
+      );
     }
   }
 

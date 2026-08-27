@@ -457,9 +457,9 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
 
       return compatiblePrototypes.map((entry) {
         return MenuItem(
-          label: entry.value.displayName(context),
-          icon: Icons.widgets,
-          onSelected: () {
+          label: Text(entry.value.displayName(context)),
+          icon: const Icon(Icons.widgets),
+          onSelected: (_) {
             widget.controller.addNode(
               entry.key,
               offset: worldPosition ?? Offset.zero,
@@ -502,62 +502,62 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
       return [
         MenuHeader(text: strings.editorMenuLabel),
         MenuItem(
-          label: strings.centerViewAction,
-          icon: Icons.center_focus_strong,
-          onSelected: () => widget.controller.setViewportOffset(
+          label: Text(strings.centerViewAction),
+          icon: const Icon(Icons.center_focus_strong),
+          onSelected: (_) => widget.controller.setViewportOffset(
             Offset.zero,
             absolute: true,
           ),
         ),
         MenuItem(
-          label: strings.resetZoomAction,
-          icon: Icons.zoom_in,
-          onSelected: () =>
+          label: Text(strings.resetZoomAction),
+          icon: const Icon(Icons.zoom_in),
+          onSelected: (_) =>
               widget.controller.setViewportZoom(1.0, absolute: true),
         ),
         const MenuDivider(),
         MenuItem.submenu(
-          label: strings.createNodeAction,
-          icon: Icons.add,
+          label: Text(strings.createNodeAction),
+          icon: const Icon(Icons.add),
           items: createSubmenuEntries(position),
         ),
         MenuItem(
-          label: strings.pasteSelectionAction,
-          icon: Icons.paste,
-          onSelected: () => widget.controller.clipboard
+          label: Text(strings.pasteSelectionAction),
+          icon: const Icon(Icons.paste),
+          onSelected: (_) => widget.controller.clipboard
               .pasteSelection(position: worldPosition),
         ),
         const MenuDivider(),
         MenuItem.submenu(
-          label: strings.projectLabel,
-          icon: Icons.folder,
+          label: Text(strings.projectLabel),
+          icon: const Icon(Icons.folder),
           items: [
             MenuItem(
-              label: strings.undoAction,
-              icon: Icons.undo,
-              onSelected: () => widget.controller.history.undo(),
+              label: Text(strings.undoAction),
+              icon: const Icon(Icons.undo),
+              onSelected: (_) => widget.controller.history.undo(),
             ),
             MenuItem(
-              label: strings.redoAction,
-              icon: Icons.redo,
-              onSelected: () => widget.controller.history.redo(),
+              label: Text(strings.redoAction),
+              icon: const Icon(Icons.redo),
+              onSelected: (_) => widget.controller.history.redo(),
             ),
             MenuItem(
-              label: strings.saveProjectAction,
-              icon: Icons.save,
-              onSelected: () =>
+              label: Text(strings.saveProjectAction),
+              icon: const Icon(Icons.save),
+              onSelected: (_) =>
                   widget.controller.project.save(context: context),
             ),
             MenuItem(
-              label: strings.openProjectAction,
-              icon: Icons.folder_open,
-              onSelected: () =>
+              label: Text(strings.openProjectAction),
+              icon: const Icon(Icons.folder_open),
+              onSelected: (_) =>
                   widget.controller.project.load(context: context),
             ),
             MenuItem(
-              label: strings.newProjectAction,
-              icon: Icons.new_label,
-              onSelected: () =>
+              label: Text(strings.newProjectAction),
+              icon: const Icon(Icons.new_label),
+              onSelected: (_) =>
                   widget.controller.project.create(context: context),
             ),
           ],
@@ -601,9 +601,9 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
       return [
         MenuHeader(text: strings.portMenuLabel),
         MenuItem(
-          label: strings.cutLinksAction,
-          icon: Icons.remove_circle,
-          onSelected: () {
+          label: Text(strings.cutLinksAction),
+          icon: const Icon(Icons.remove_circle),
+          onSelected: (_) {
             widget.controller.breakPortLinks(
               locator.nodeId,
               locator.portId,

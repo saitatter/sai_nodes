@@ -1,4 +1,7 @@
-export 'package:sai_nodes/src/core/controller/callback.dart' show CallbackType;
+export 'package:sai_nodes/src/core/controller/callback.dart'
+    show Callback, CallbackType;
+export 'package:sai_nodes/src/core/controller/project.dart'
+    show DataHandler, ProjectCreator, ProjectLoader, ProjectSaver;
 export 'package:sai_nodes/src/core/controller/core.dart'
     show
         NodeEditorController,
@@ -8,9 +11,11 @@ export 'package:sai_nodes/src/core/controller/core.dart'
 export 'package:sai_nodes/src/core/controller/utils.dart' show NodeEditorUtils;
 export 'package:sai_nodes/src/core/events/events.dart'
     show
+        NodeEditorEvent,
         ViewportOffsetEvent,
         ViewportZoomEvent,
         NodeSelectionEvent,
+        SelectionEventType,
         LinkSelectionEvent,
         DragSelectionStartEvent,
         DragSelectionEvent,
@@ -20,6 +25,7 @@ export 'package:sai_nodes/src/core/events/events.dart'
         RemoveNodeEvent,
         AddLinkEvent,
         RemoveLinkEvent,
+        LinkLabelChangeEvent,
         NodeFieldEvent,
         FieldEventType,
         DrawTempLinkEvent,
@@ -42,8 +48,7 @@ export 'package:sai_nodes/src/core/localization/delegate.dart';
 export 'package:sai_nodes/src/core/models/data.dart'
     show
         LinkDataModel,
-        FromTo,
-        FromToEndpoints,
+        LinkEndpoints,
         PortType,
         PortDirection,
         PortPrototype,
@@ -67,6 +72,7 @@ export 'package:sai_nodes/src/styles/styles.dart'
         LineDrawMode,
         LinkCurveType,
         LinkStyle,
+        LinkLabelStyle,
         PortShape,
         PortStyle,
         FieldStyle,
@@ -80,6 +86,13 @@ export 'package:sai_nodes/src/styles/styles.dart'
 export 'package:sai_nodes/src/widgets/node_editor.dart';
 export 'package:sai_nodes/src/widgets/node_editor_context_menu.dart';
 export 'package:sai_nodes/src/widgets/builders.dart'
-    show EditorContextMenuBuilder, NodeResizeBuilder;
+    show
+        EditorContextMenuBuilder,
+        NodeContextMenuBuilder,
+        NodeBuilder,
+        NodeFieldBuilder,
+        NodeHeaderBuilder,
+        NodePortBuilder,
+        NodeResizeBuilder;
 export 'package:sai_nodes/src/widgets/node_editor_shortcuts.dart';
 export 'package:sai_nodes/src/widgets/node_editor_toolbar.dart';
