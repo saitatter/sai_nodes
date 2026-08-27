@@ -1,7 +1,7 @@
 name: sai_nodes
 description: A lightweight, scalable, and highly customizable package for building interactive node-based UIs in Flutter.
 version: 0.1.0
-maintainer: Saitatter
+maintainer: SaiTatter
 
 homepage: https://github.com/saitatter/sai_nodes
 repository: https://github.com/saitatter/sai_nodes
