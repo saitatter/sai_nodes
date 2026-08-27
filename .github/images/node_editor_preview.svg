@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">SAI Nodes editor preview</title>
+  <desc id="desc">A node editor canvas with connected input, transform, and output nodes.</desc>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#26313d" stroke-width="1"/>
+    </pattern>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#071018" flood-opacity=".35"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="620" rx="18" fill="#101820"/>
+  <rect x="18" y="18" width="1164" height="584" rx="12" fill="#141f29" stroke="#354453"/>
+  <rect x="18" y="18" width="1164" height="52" rx="12" fill="#1b2935"/>
+  <path d="M18 70h1164" stroke="#354453"/>
+  <circle cx="48" cy="44" r="7" fill="#e56b5d"/>
+  <circle cx="72" cy="44" r="7" fill="#e9c46a"/>
+  <circle cx="96" cy="44" r="7" fill="#72c79b"/>
+  <text x="132" y="50" fill="#dbe8ef" font-family="sans-serif" font-size="18" font-weight="700">SAI Nodes</text>
+  <rect x="1032" y="29" width="118" height="30" rx="6" fill="#263746"/>
+  <text x="1052" y="50" fill="#a9bdc8" font-family="sans-serif" font-size="13">0.1.0</text>
+  <rect x="18" y="70" width="1164" height="532" fill="url(#grid)"/>
+  <path d="M330 252 C425 252 425 178 518 178 S620 178 694 178" fill="none" stroke="#63c6b2" stroke-width="4"/>
+  <path d="M330 325 C425 325 425 397 518 397 S620 397 694 397" fill="none" stroke="#e9c46a" stroke-width="4"/>
+  <g filter="url(#shadow)">
+    <rect x="112" y="190" width="218" height="188" rx="9" fill="#243645" stroke="#4b6475"/>
+    <rect x="112" y="190" width="218" height="42" rx="9" fill="#345166"/>
+    <text x="134" y="217" fill="#f4f8fa" font-family="sans-serif" font-size="16" font-weight="700">Input</text>
+    <text x="134" y="266" fill="#a9bdc8" font-family="sans-serif" font-size="14">value</text>
+    <circle cx="330" cy="252" r="7" fill="#63c6b2"/>
+    <circle cx="330" cy="325" r="7" fill="#e9c46a"/>
+    <rect x="518" y="116" width="218" height="188" rx="9" fill="#293b4d" stroke="#557188"/>
+    <rect x="518" y="116" width="218" height="42" rx="9" fill="#3d5d74"/>
+    <text x="540" y="143" fill="#f4f8fa" font-family="sans-serif" font-size="16" font-weight="700">Transform</text>
+    <text x="540" y="192" fill="#a9bdc8" font-family="sans-serif" font-size="14">operation</text>
+    <circle cx="518" cy="178" r="7" fill="#63c6b2"/>
+    <circle cx="518" cy="397" r="7" fill="#e9c46a"/>
+    <rect x="694" y="304" width="218" height="188" rx="9" fill="#243645" stroke="#4b6475"/>
+    <rect x="694" y="304" width="218" height="42" rx="9" fill="#345166"/>
+    <text x="716" y="331" fill="#f4f8fa" font-family="sans-serif" font-size="16" font-weight="700">Output</text>
+    <text x="716" y="380" fill="#a9bdc8" font-family="sans-serif" font-size="14">result</text>
+    <circle cx="694" cy="178" r="7" fill="#63c6b2"/>
+    <circle cx="694" cy="397" r="7" fill="#e9c46a"/>
+  </g>
+  <rect x="1014" y="520" width="136" height="48" rx="8" fill="#1b2935" stroke="#455b6b"/>
+  <text x="1037" y="550" fill="#c9d7de" font-family="sans-serif" font-size="14">100%</text>
+</svg>

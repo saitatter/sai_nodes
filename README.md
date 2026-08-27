@@ -70,10 +70,10 @@ The package is being developed as a reusable foundation for workflow, shader, an
 
 ---
 
-## 📸 **Screenshots**
+## 📸 **Preview**
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/saitatter/sai_nodes/main/.github/images/node_editor_example.webp" alt="SAI Nodes Example" />
+  <img src="https://raw.githubusercontent.com/saitatter/sai_nodes/main/.github/images/node_editor_preview.svg" alt="SAI Nodes node editor preview" />
 </p>
 
 ---
@@ -121,16 +121,53 @@ NodeEditorWidget(
 );
 ```
 
-The editor grid shader must be declared in the consuming application's `pubspec.yaml`:
+The package declares its grid shader as a package resource. The consuming application
+does not need to redeclare it:
 
 ```yaml
 flutter:
   uses-material-design: true
-  shaders:
-    - packages/sai_nodes/shaders/grid.frag
 ```
 
 For custom graphs, register `NodePrototype` instances with typed data or control ports and provide field, header, port, node, or context-menu builders as needed.
+
+### Generic editor extensions
+
+`NodeEditorWidget.nodeEditorMenuBuilder` enables the built-in searchable and collapsible canvas menu:
+
+```dart
+NodeEditorWidget(
+  controller: controller,
+  overlay: () => const <OverlayData>[],
+  nodeEditorMenuBuilder: (context, position) => [
+    const NodeEditorMenuAction(label: 'Create node'),
+    const NodeEditorMenuDivider(),
+    NodeEditorMenuSection(
+      label: 'View',
+      entries: [
+        NodeEditorMenuAction(
+          label: 'Reset zoom',
+          onSelected: controller.resetViewport,
+        ),
+      ],
+    ),
+  ],
+);
+```
+
+Use `nodeMenuBuilder` for the same menu surface on individual nodes.
+Both builders return `NodeEditorMenuEntry` values, including actions, dividers,
+and nested sections. With the menu focused, Up/Down moves between enabled
+actions and Enter activates the highlighted action.
+
+The legacy `editorContextMenuBuilder` remains available for applications that
+need `flutter_context_menu` entries. Set `NodeEditorConfig.enableNodeResize` to
+show the built-in resize handle, or use `NodeResizeBuilder` for an
+application-specific handle. Node instance titles and fixed sizes are available
+as `NodeDataModel.customTitle` and `NodeDataModel.customSize`, and are included
+in node JSON. For links, prefer `sourceNodeId`, `sourcePortId`, `targetNodeId`,
+and `targetPortId` on `FromTo`; the historical tuple fields are kept for
+compatibility.
 
 ---
 
