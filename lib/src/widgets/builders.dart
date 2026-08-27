@@ -41,6 +41,13 @@ typedef NodeContextMenuBuilder = List<ContextMenuEntry> Function(
   NodeDataModel node,
 );
 
+/// The content of the editor context menu shown on the empty canvas.
+typedef EditorContextMenuBuilder = List<ContextMenuEntry> Function(
+  BuildContext context,
+  Offset position,
+  List<ContextMenuEntry> defaultEntries,
+);
+
 /// The style of the node.
 ///
 /// The node is the widget that contains the header, the fields and the ports.
@@ -49,4 +56,13 @@ typedef NodeContextMenuBuilder = List<ContextMenuEntry> Function(
 typedef NodeBuilder = Widget Function(
   BuildContext context,
   NodeDataModel node,
+);
+
+/// Builds an optional resize handle for a node.
+///
+/// The callback receives a size in the node's logical coordinate space.
+typedef NodeResizeBuilder = Widget Function(
+  BuildContext context,
+  NodeDataModel node,
+  void Function(Size size) onResize,
 );

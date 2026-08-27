@@ -62,8 +62,7 @@ class NodeEditorExecutionHelper {
         event is RemoveNodeEvent ||
         event is AddLinkEvent ||
         event is RemoveLinkEvent ||
-        (event is NodeFieldEvent &&
-            event.eventType == FieldEventType.submit)) {
+        (event is NodeFieldEvent && event.eventType == FieldEventType.submit)) {
       if (controller.config.autoBuildGraph) {
         _buildGraphDelayTimer?.cancel();
         _buildGraphDelayTimer =

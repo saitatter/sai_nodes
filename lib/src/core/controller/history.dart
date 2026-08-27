@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:sai_nodes/src/core/models/data.dart';
 
 import '../../constants.dart';
@@ -17,15 +19,26 @@ class NodeEditorHistoryHelper {
   bool _isTraversingHistory = false;
   final _undoStack = Stack<NodeEditorEvent>(kMaxEventUndoHistory);
   final _redoStack = Stack<NodeEditorEvent>(kMaxEventRedoHistory);
+  late final StreamSubscription<NodeEditorEvent> _eventSubscription;
 
   NodeEditorHistoryHelper(this.controller) {
-    controller.eventBus.events.listen(_handleUndoableEvents);
+    _eventSubscription = controller.eventBus.events.listen(
+      _handleUndoableEvents,
+    );
   }
+
+  bool get canUndo => !_undoStack.isEmpty;
+  bool get canRedo => !_redoStack.isEmpty;
 
   /// Clears the undo and redo stacks.
   void clear() {
     _undoStack.clear();
     _redoStack.clear();
+  }
+
+  void dispose() {
+    _eventSubscription.cancel();
+    clear();
   }
 
   /// Handles undoable events.
@@ -52,8 +65,7 @@ class NodeEditorHistoryHelper {
       return;
     }
 
-    if (event is DragSelectionEvent &&
-        previousEvent is DragSelectionEvent) {
+    if (event is DragSelectionEvent && previousEvent is DragSelectionEvent) {
       if (event.nodeIds.length == previousEvent.nodeIds.length &&
           event.nodeIds.every(previousEvent.nodeIds.contains)) {
         _undoStack.pop();
@@ -62,6 +74,21 @@ class NodeEditorHistoryHelper {
             id: event.id,
             event.nodeIds,
             event.delta + previousEvent.delta,
+          ),
+        );
+        return;
+      }
+    }
+
+    if (event is NodeResizeEvent && previousEvent is NodeResizeEvent) {
+      if (event.nodeId == previousEvent.nodeId) {
+        _undoStack.pop();
+        _undoStack.push(
+          NodeResizeEvent(
+            event.nodeId,
+            oldSize: previousEvent.oldSize,
+            newSize: event.newSize,
+            id: event.id,
           ),
         );
         return;
@@ -93,6 +120,20 @@ class NodeEditorHistoryHelper {
         controller.removeNodeById(event.node.id, eventId: event.id);
       } else if (event is RemoveNodeEvent) {
         controller.addNodeFromExisting(event.node, eventId: event.id);
+      } else if (event is NodeRenameEvent) {
+        controller.renameNode(
+          event.nodeId,
+          event.oldTitle,
+          eventId: event.id,
+          isHandled: true,
+        );
+      } else if (event is NodeResizeEvent) {
+        controller.resizeNode(
+          event.nodeId,
+          event.oldSize,
+          eventId: event.id,
+          isHandled: true,
+        );
       } else if (event is AddLinkEvent) {
         controller.removeLinkById(event.link.id, eventId: event.id);
       } else if (event is RemoveLinkEvent) {
@@ -130,6 +171,20 @@ class NodeEditorHistoryHelper {
         );
       } else if (event is RemoveNodeEvent) {
         controller.removeNodeById(event.node.id, eventId: event.id);
+      } else if (event is NodeRenameEvent) {
+        controller.renameNode(
+          event.nodeId,
+          event.newTitle,
+          eventId: event.id,
+          isHandled: true,
+        );
+      } else if (event is NodeResizeEvent) {
+        controller.resizeNode(
+          event.nodeId,
+          event.newSize,
+          eventId: event.id,
+          isHandled: true,
+        );
       } else if (event is AddLinkEvent) {
         controller.addLinkFromExisting(
           event.link.copyWith(

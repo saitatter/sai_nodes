@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:sai_nodes/src/core/controller/callback.dart';
@@ -51,17 +52,26 @@ class NodeEditorController with ChangeNotifier {
       projectLoader: projectLoader,
       projectCreator: projectCreator,
     );
+    _stateEventSubscription = eventBus.events.listen((_) => notifyListeners());
   }
 
   /// This method is used to dispose of the node editor controller and all of its resources, subsystems and members.
   @override
   void dispose() {
+    _stateEventSubscription.cancel();
+    if (_hasTickerProvider) {
+      _viewportOffsetAnimController.dispose();
+      _viewportZoomAnimController.dispose();
+      _hasTickerProvider = false;
+    }
+    history.dispose();
+    project.dispose();
     eventBus.close();
-    history.clear();
-    project.clear();
     runner.clear();
 
     clear();
+    viewportOffsetNotifier.dispose();
+    viewportZoomNotifier.dispose();
 
     super.dispose();
   }
@@ -86,8 +96,9 @@ class NodeEditorController with ChangeNotifier {
   /// Controller subsystems are used to manage the state of the node editor.
   ////////////////////////////////////////////////////////////////////////////////
 
-  /// The event bus is used to communicate between different susbsystems and with the UI.
+  /// The event bus communicates between controller subsystems and the UI.
   final eventBus = NodeEditorEventBus();
+  late final StreamSubscription<NodeEditorEvent> _stateEventSubscription;
 
   late final NodeEditorClipboardHelper clipboard;
   late final NodeEditorExecutionHelper runner;
@@ -104,8 +115,14 @@ class NodeEditorController with ChangeNotifier {
   late AnimationController _viewportZoomAnimController;
   late Animation<Offset> _viewportOffsetAnim;
   late Animation<double> _viewportZoomAnim;
+  bool _hasTickerProvider = false;
 
   void setTickerProvider(TickerProvider tickerProvider) {
+    if (_hasTickerProvider) {
+      _viewportOffsetAnimController.dispose();
+      _viewportZoomAnimController.dispose();
+    }
+
     _tickerProvider = tickerProvider;
 
     _viewportOffsetAnimController = AnimationController(
@@ -114,6 +131,7 @@ class NodeEditorController with ChangeNotifier {
     _viewportZoomAnimController = AnimationController(
       vsync: _tickerProvider!,
     );
+    _hasTickerProvider = true;
   }
 
   ////////////////////////////////////////////////////////////////////////////////
@@ -209,7 +227,7 @@ class NodeEditorController with ChangeNotifier {
   ///
   /// The 'animate' parameter is used to animate the zoom transition.
   ///
-  /// NOTE: The focal point deafults to the current viewport offset if not provided and uses cursor position from mouse events.
+  /// NOTE: The focal point defaults to the current viewport offset if not provided and uses cursor position from mouse events.
   void setViewportZoom(
     double zoom, {
     bool animate = true,
@@ -324,11 +342,11 @@ class NodeEditorController with ChangeNotifier {
 
   /// Quick access to frequently used configuration properties.
 
-  /// Enable or disable zooming in the node editor.
+  /// Enable or disable snapping nodes to the configured grid.
   void enableSnapToGrid(bool enable) async {
     if (!enable) {
       for (final node in nodes.values) {
-        node.offset = unboundNodeOffsets[node.id]!;
+        node.offset = unboundNodeOffsets[node.id] ?? node.offset;
       }
     } else {
       for (final node in nodes.values) {
@@ -350,7 +368,7 @@ class NodeEditorController with ChangeNotifier {
 
   /// Enable or disable auto placement of nodes in the node editor.
   void enableAutoPlacement(bool enable) =>
-      setConfig(config = config.copyWith(enableAutoPlacement: enable));
+      setConfig(config.copyWith(enableAutoPlacement: enable));
 
   NodeEditorStyle style;
 
@@ -692,8 +710,8 @@ class NodeEditorController with ChangeNotifier {
     bool isHandled = false,
   }) {
     if (links.containsKey(link.id) ||
-      !nodes.containsKey(link.fromTo.from) ||
-      !nodes.containsKey(link.fromTo.fromPort)) {
+        !nodes.containsKey(link.fromTo.from) ||
+        !nodes.containsKey(link.fromTo.fromPort)) {
       return;
     }
 
@@ -705,18 +723,17 @@ class NodeEditorController with ChangeNotifier {
       return;
     }
 
-    final fromPort = nodes[link.fromTo.from]!.ports[link.fromTo.to]!;
-    final toPort = project
-        .projectData.nodes[link.fromTo.fromPort]!.ports[link.fromTo.toPort]!;
+    final fromPort = fromNode.ports[link.fromTo.to]!;
+    final toPort = toNode.ports[link.fromTo.toPort]!;
 
     if (fromPort.links.any(
-        (existing) =>
-          existing.id == link.id || existing.fromTo == link.fromTo,
-      ) ||
-      toPort.links.any(
-        (existing) =>
-          existing.id == link.id || existing.fromTo == link.fromTo,
-      )) {
+          (existing) =>
+              existing.id == link.id || existing.fromTo == link.fromTo,
+        ) ||
+        toPort.links.any(
+          (existing) =>
+              existing.id == link.id || existing.fromTo == link.fromTo,
+        )) {
       return;
     }
 
@@ -843,6 +860,85 @@ class NodeEditorController with ChangeNotifier {
         nodeId,
         data,
         eventType,
+      ),
+    );
+  }
+
+  /// Sets or clears the instance title for a node.
+  ///
+  /// A null or whitespace-only title restores the prototype display name.
+  /// Emits an undoable [NodeRenameEvent] when the title changes.
+  void renameNode(
+    String nodeId,
+    String? title, {
+    String? eventId,
+    bool isHandled = false,
+  }) {
+    final node = nodes[nodeId];
+    if (node == null) return;
+
+    final normalizedTitle = title?.trim();
+    final nextTitle = normalizedTitle?.isEmpty == true ? null : normalizedTitle;
+    if (node.customTitle == nextTitle) return;
+
+    final oldTitle = node.customTitle;
+    node.customTitle = nextTitle;
+    nodesDataDirty = true;
+
+    eventBus.emit(
+      NodeRenameEvent(
+        nodeId,
+        oldTitle: oldTitle,
+        newTitle: nextTitle,
+        id: eventId ?? const Uuid().v4(),
+        isHandled: isHandled,
+      ),
+    );
+  }
+
+  /// Sets a node's fixed size, or clears it when [size] is null.
+  ///
+  /// The requested dimensions are clamped to [NodeEditorConfig]'s bounds and
+  /// the change is recorded as one undoable event.
+  void resizeNode(
+    String nodeId,
+    Size? size, {
+    String? eventId,
+    bool isHandled = false,
+  }) {
+    final node = nodes[nodeId];
+    if (node == null) return;
+
+    Size? normalizedSize;
+    if (size != null) {
+      if (!size.width.isFinite ||
+          !size.height.isFinite ||
+          size.width <= 0 ||
+          size.height <= 0) {
+        return;
+      }
+      normalizedSize = Size(
+        size.width.clamp(config.minNodeWidth, config.maxNodeWidth).toDouble(),
+        size.height
+            .clamp(config.minNodeHeight, config.maxNodeHeight)
+            .toDouble(),
+      );
+    }
+
+    if (node.customSize == normalizedSize) return;
+
+    final oldSize = node.customSize;
+    node.customSize = normalizedSize;
+    nodesDataDirty = true;
+    linksDataDirty = true;
+
+    eventBus.emit(
+      NodeResizeEvent(
+        nodeId,
+        oldSize: oldSize,
+        newSize: normalizedSize,
+        id: eventId ?? const Uuid().v4(),
+        isHandled: isHandled,
       ),
     );
   }
@@ -1069,6 +1165,114 @@ class NodeEditorController with ChangeNotifier {
     selectedLinkIds.clear();
   }
 
+  /// Selects every node currently in the project.
+  void selectAllNodes({bool holdSelection = false}) {
+    selectNodesById(nodes.keys.toSet(), holdSelection: holdSelection);
+  }
+
+  /// Replaces the current node selection with its inverse.
+  void invertNodeSelection() {
+    final nextSelection =
+        nodes.keys.where((id) => !selectedNodeIds.contains(id)).toSet();
+    selectNodesById(nextSelection);
+  }
+
+  /// Removes all selected nodes and links, then clears the selection.
+  void deleteSelection() {
+    final selectedNodes = selectedNodeIds.toList();
+    final selectedLinks = selectedLinkIds.toList();
+
+    for (final nodeId in selectedNodes) {
+      removeNodeById(
+        nodeId,
+        isHandled: nodeId != selectedNodes.last,
+      );
+    }
+    for (final linkId in selectedLinks) {
+      removeLinkById(linkId, isHandled: linkId != selectedLinks.last);
+    }
+    clearSelection();
+  }
+
+  void alignSelectedNodes(NodeAlignment alignment) {
+    final selected = selectedNodeIds
+        .map((id) => nodes[id])
+        .whereType<NodeDataModel>()
+        .toList();
+    if (selected.length < 2) return;
+
+    final value = switch (alignment) {
+      NodeAlignment.left => selected.map((node) => node.offset.dx).reduce(min),
+      NodeAlignment.centerHorizontal =>
+        selected.map((node) => node.offset.dx).reduce((a, b) => a + b) /
+            selected.length,
+      NodeAlignment.right => selected.map((node) => node.offset.dx).reduce(max),
+      NodeAlignment.top => selected.map((node) => node.offset.dy).reduce(min),
+      NodeAlignment.centerVertical =>
+        selected.map((node) => node.offset.dy).reduce((a, b) => a + b) /
+            selected.length,
+      NodeAlignment.bottom =>
+        selected.map((node) => node.offset.dy).reduce(max),
+    };
+
+    for (final node in selected) {
+      node.offset = switch (alignment) {
+        NodeAlignment.left ||
+        NodeAlignment.centerHorizontal ||
+        NodeAlignment.right =>
+          Offset(value, node.offset.dy),
+        NodeAlignment.top ||
+        NodeAlignment.centerVertical ||
+        NodeAlignment.bottom =>
+          Offset(node.offset.dx, value),
+      };
+      unboundNodeOffsets[node.id] = node.offset;
+    }
+    _emitNodeLayout(selected);
+  }
+
+  void distributeSelectedNodes(NodeDistributionAxis axis) {
+    final selected = selectedNodeIds
+        .map((id) => nodes[id])
+        .whereType<NodeDataModel>()
+        .toList();
+    if (selected.length < 3) return;
+
+    selected.sort(
+      (a, b) => axis == NodeDistributionAxis.horizontal
+          ? a.offset.dx.compareTo(b.offset.dx)
+          : a.offset.dy.compareTo(b.offset.dy),
+    );
+    final first = axis == NodeDistributionAxis.horizontal
+        ? selected.first.offset.dx
+        : selected.first.offset.dy;
+    final last = axis == NodeDistributionAxis.horizontal
+        ? selected.last.offset.dx
+        : selected.last.offset.dy;
+    final step = (last - first) / (selected.length - 1);
+
+    for (var index = 1; index < selected.length - 1; index++) {
+      final node = selected[index];
+      final position = first + step * index;
+      node.offset = axis == NodeDistributionAxis.horizontal
+          ? Offset(position, node.offset.dy)
+          : Offset(node.offset.dx, position);
+      unboundNodeOffsets[node.id] = node.offset;
+    }
+    _emitNodeLayout(selected);
+  }
+
+  void _emitNodeLayout(Iterable<NodeDataModel> nodes) {
+    nodesDataDirty = true;
+    linksDataDirty = true;
+    eventBus.emit(
+      NodeLayoutEvent(
+        nodes.map((node) => node.id).toSet(),
+        id: const Uuid().v4(),
+      ),
+    );
+  }
+
   /////////////////////////////////////////////////////////////////////
   /// Miscellaneous helpers useful for node editors.
   /////////////////////////////////////////////////////////////////////
@@ -1087,13 +1291,18 @@ class NodeEditorController with ChangeNotifier {
   }) {
     selectNodesById(ids, holdSelection: holdSelection);
 
+    if (selectedNodeIds.isEmpty) return;
+
+    final nodeEditorSize = RenderBoxUtils.getSizeFromGlobalKey(editorKey);
+    if (nodeEditorSize == null || nodeEditorSize.isEmpty) return;
+
     final encompassingRect = NodeEditorUtils.calculateEncompassingRect(
       selectedNodeIds,
       nodes,
       margin: 256,
     );
 
-    final nodeEditorSize = RenderBoxUtils.getSizeFromGlobalKey(editorKey)!;
+    if (encompassingRect.isEmpty) return;
 
     setViewportOffset(
       -encompassingRect.center,
@@ -1111,6 +1320,19 @@ class NodeEditorController with ChangeNotifier {
       absolute: true,
       animate: animate,
     );
+  }
+
+  /// Centers the viewport on all nodes without changing their selection.
+  void focusAllNodes({bool animate = true}) {
+    final previousSelection = selectedNodeIds.toSet();
+    focusNodesById(nodes.keys.toSet(), animate: animate);
+    selectNodesById(previousSelection);
+  }
+
+  /// Restores the default centered viewport and zoom.
+  void resetViewport({bool animate = true}) {
+    setViewportOffset(Offset.zero, absolute: true, animate: animate);
+    setViewportZoom(1.0, absolute: true, animate: animate);
   }
 
   /// This method is used to find all nodes with the specified display name.
@@ -1131,3 +1353,14 @@ class NodeEditorController with ChangeNotifier {
     return results;
   }
 }
+
+enum NodeAlignment {
+  left,
+  centerHorizontal,
+  right,
+  top,
+  centerVertical,
+  bottom,
+}
+
+enum NodeDistributionAxis { horizontal, vertical }

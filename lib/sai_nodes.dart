@@ -1,6 +1,11 @@
 export 'package:sai_nodes/src/core/controller/callback.dart' show CallbackType;
 export 'package:sai_nodes/src/core/controller/core.dart'
-    show NodeEditorController, NodeEditorConfig;
+    show
+        NodeEditorController,
+        NodeEditorConfig,
+        NodeAlignment,
+        NodeDistributionAxis;
+export 'package:sai_nodes/src/core/controller/utils.dart' show NodeEditorUtils;
 export 'package:sai_nodes/src/core/events/events.dart'
     show
         ViewportOffsetEvent,
@@ -19,6 +24,11 @@ export 'package:sai_nodes/src/core/events/events.dart'
         FieldEventType,
         DrawTempLinkEvent,
         AreaHighlightEvent,
+        NodeLayoutEvent,
+        NodeRenameEvent,
+        NodeResizeEvent,
+        NodeHoverEvent,
+        HoverEventType,
         CopySelectionEvent,
         CutSelectionEvent,
         PasteSelectionEvent,
@@ -32,6 +42,8 @@ export 'package:sai_nodes/src/core/localization/delegate.dart';
 export 'package:sai_nodes/src/core/models/data.dart'
     show
         LinkDataModel,
+        FromTo,
+        FromToEndpoints,
         PortType,
         PortDirection,
         PortPrototype,
@@ -66,4 +78,8 @@ export 'package:sai_nodes/src/styles/styles.dart'
         defaultNodeHeaderStyleBuilder,
         defaultNodeStyleBuilder;
 export 'package:sai_nodes/src/widgets/node_editor.dart';
+export 'package:sai_nodes/src/widgets/node_editor_context_menu.dart';
+export 'package:sai_nodes/src/widgets/builders.dart'
+    show EditorContextMenuBuilder, NodeResizeBuilder;
 export 'package:sai_nodes/src/widgets/node_editor_shortcuts.dart';
+export 'package:sai_nodes/src/widgets/node_editor_toolbar.dart';

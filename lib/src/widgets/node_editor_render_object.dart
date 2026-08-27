@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'dart:ui';
 
@@ -8,6 +10,7 @@ import 'package:sai_nodes/src/core/models/paint.dart';
 import 'package:sai_nodes/src/core/utils/rendering/paths.dart';
 import 'package:sai_nodes/src/styles/styles.dart';
 import 'package:sai_nodes/src/widgets/builders.dart';
+import 'package:sai_nodes/src/widgets/node_editor_context_menu.dart';
 import 'package:sai_nodes/src/widgets/default_node.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -19,15 +22,20 @@ import 'package:flutter_shaders/flutter_shaders.dart';
 import 'package:uuid/uuid.dart';
 import 'package:vector_math/vector_math.dart' as vec;
 
+/// Snapshot of node properties that affect render-object reconciliation.
 class NodeDiffCheckData {
   String id;
   Offset offset;
   NodeState state;
+  String? customTitle;
+  Size? customSize;
 
   NodeDiffCheckData({
     required this.id,
     required this.offset,
     required this.state,
+    required this.customTitle,
+    required this.customSize,
   });
 }
 
@@ -37,6 +45,8 @@ class _ParentData extends ContainerBoxParentData<RenderBox> {
   String id = '';
   Offset nodeOffset = Offset.zero;
   NodeState state = NodeState();
+  String? customTitle;
+  Size? customSize;
 
   // This is used to store the border radius of the node for more accurate hit testing and rendering
   double borderRadius = 8.0;
@@ -55,7 +65,9 @@ class NodeEditorRenderObjectWidget extends MultiChildRenderObjectWidget {
   final NodeFieldBuilder? fieldBuilder;
   final NodePortBuilder? portBuilder;
   final NodeContextMenuBuilder? contextMenuBuilder;
+  final NodeMenuBuilder? nodeMenuBuilder;
   final NodeBuilder? nodeBuilder;
+  final NodeResizeBuilder? resizeBuilder;
 
   NodeEditorRenderObjectWidget({
     super.key,
@@ -65,7 +77,9 @@ class NodeEditorRenderObjectWidget extends MultiChildRenderObjectWidget {
     this.fieldBuilder,
     this.portBuilder,
     this.contextMenuBuilder,
+    this.nodeMenuBuilder,
     this.nodeBuilder,
+    this.resizeBuilder,
   }) : super(
           children: controller.nodesAsList
               .map(
@@ -76,7 +90,9 @@ class NodeEditorRenderObjectWidget extends MultiChildRenderObjectWidget {
                   fieldBuilder: fieldBuilder,
                   portBuilder: portBuilder,
                   contextMenuBuilder: contextMenuBuilder,
+                  nodeMenuBuilder: nodeMenuBuilder,
                   nodeBuilder: nodeBuilder,
+                  resizeBuilder: resizeBuilder,
                 ),
               )
               .toList() as List<Widget>,
@@ -120,7 +136,7 @@ class NodeEditorRenderBox extends RenderBox
     _zoom = _controller.viewportZoom;
     _highlightArea = _controller.highlightArea;
 
-    _controller.eventBus.events.listen(_handleEvent);
+    _eventSubscription = _controller.eventBus.events.listen(_handleEvent);
   }
 
   void _handleEvent(NodeEditorEvent event) {
@@ -147,6 +163,8 @@ class NodeEditorRenderBox extends RenderBox
       markNeedsPaint();
     } else if (event is DragSelectionEvent) {
       _updateNodes();
+    } else if (event is NodeLayoutEvent) {
+      _updateNodes();
     } else if (event is AddNodeEvent ||
         event is RemoveNodeEvent ||
         event is CutSelectionEvent ||
@@ -168,6 +186,8 @@ class NodeEditorRenderBox extends RenderBox
     } else if (event is NodeFieldEvent) {
       _childrenNotLaidOut.add(event.nodeId);
       markNeedsLayout();
+    } else if (event is NodeRenameEvent || event is NodeResizeEvent) {
+      _updateNodes();
     } else if (event is ConfigurationChangeEvent) {
       _updateNodes();
     } else if (event is LocaleChangeEvent || event is StyleChangeEvent) {
@@ -196,6 +216,7 @@ class NodeEditorRenderBox extends RenderBox
   }
 
   final NodeEditorController _controller;
+  late final StreamSubscription<NodeEditorEvent> _eventSubscription;
   final Map<String, RenderBox> _childrenById = {};
 
   // We keep track of the layout operation manually beacuse the hasSize getter
@@ -238,6 +259,8 @@ class NodeEditorRenderBox extends RenderBox
             id: node.id,
             offset: node.offset,
             state: node.state,
+            customTitle: node.customTitle,
+            customSize: node.customSize,
           ),
         )
         .toList();
@@ -305,10 +328,14 @@ class NodeEditorRenderBox extends RenderBox
       if (childParentData.id != nodeData.id ||
           childParentData.offset != nodeData.offset ||
           childParentData.state.isCollapsed != nodeData.state.isCollapsed ||
+          childParentData.customTitle != nodeData.customTitle ||
+          childParentData.customSize != nodeData.customSize ||
           _childrenById[nodeData.id] != child) {
         childParentData.id = nodeData.id;
         childParentData.offset = nodeData.offset;
         childParentData.state = nodeData.state;
+        childParentData.customTitle = nodeData.customTitle;
+        childParentData.customSize = nodeData.customSize;
         childParentData.rect = Rect.zero;
 
         _childrenById[nodeData.id] = child;
@@ -370,6 +397,8 @@ class NodeEditorRenderBox extends RenderBox
     parentData.id = diffCheckData.id;
     parentData.offset = diffCheckData.offset;
     parentData.state = diffCheckData.state;
+    parentData.customTitle = diffCheckData.customTitle;
+    parentData.customSize = diffCheckData.customSize;
 
     final decoration =
         _controller.getNodeById(diffCheckData.id)?.builtStyle.decoration;
@@ -1110,9 +1139,9 @@ class NodeEditorRenderBox extends RenderBox
   /// Hit detection methods
   //////////////////////////////////////////////////////////////////
 
-  /// Finds a link that is hit by the given position within tolerance
+  /// Finds a link hit by the given position within logical-unit tolerance.
   String? _findHitLink(Offset transformedPosition, Rect checkRect) {
-    const tolerance = 4.0;
+    final tolerance = _controller.config.linkHitTestTolerance;
 
     for (final (id, path) in _linksHitTestData) {
       if (checkRect.overlaps(path.getBounds())) {
@@ -1124,9 +1153,9 @@ class NodeEditorRenderBox extends RenderBox
     return null;
   }
 
-  /// Finds a port that is hit by the given position within tolerance
+  /// Finds a port hit by the given position within logical-unit tolerance.
   (String, String)? _findHitPort(Offset transformedPosition, Rect checkRect) {
-    const tolerance = 4.0;
+    final tolerance = _controller.config.portHitTestTolerance;
 
     for (final (locator, rect) in portsHitTestData) {
       if (checkRect.overlaps(rect.inflate(tolerance))) {
@@ -1145,7 +1174,10 @@ class NodeEditorRenderBox extends RenderBox
     if (lastHoveredNodeId != nodeId) {
       _clearNodeHover();
 
-      _controller.getNodeById(nodeId)!.state.isHovered = true;
+      final node = _controller.getNodeById(nodeId);
+      if (node == null) return;
+
+      node.state.isHovered = true;
       _controller.nodesDataDirty = true;
       lastHoveredNodeId = nodeId;
 
@@ -1166,7 +1198,10 @@ class NodeEditorRenderBox extends RenderBox
     if (lastHoveredLinkId != linkId) {
       _clearLinkHover();
 
-      _controller.links[linkId]!.state.isHovered = true;
+      final link = _controller.links[linkId];
+      if (link == null) return;
+
+      link.state.isHovered = true;
       _controller.linksDataDirty = true;
       lastHoveredLinkId = linkId;
 
@@ -1176,11 +1211,11 @@ class NodeEditorRenderBox extends RenderBox
 
   /// Sets hover state for a port
   void _setPortHover((String, String) portLocator) {
-    _controller
-        .getNodeById(portLocator.$1)!
-        .ports[portLocator.$2]!
-        .state
-        .isHovered = true;
+    final node = _controller.getNodeById(portLocator.$1);
+    final port = node?.ports[portLocator.$2];
+    if (port == null) return;
+
+    port.state.isHovered = true;
     _controller.nodesDataDirty = true;
     lastHoveredPortLocator = portLocator;
 
@@ -1193,20 +1228,19 @@ class NodeEditorRenderBox extends RenderBox
 
   /// Clears hover state for nodes
   void _clearNodeHover() {
-    if (lastHoveredNodeId != null &&
-        _controller.isNodePresent(lastHoveredNodeId!)) {
-      _controller.getNodeById(lastHoveredNodeId!)!.state.isHovered = false;
+    final nodeId = lastHoveredNodeId;
+    lastHoveredNodeId = null;
+    if (nodeId != null && _controller.isNodePresent(nodeId)) {
+      _controller.getNodeById(nodeId)!.state.isHovered = false;
       _controller.nodesDataDirty = true;
 
       _controller.eventBus.emit(
         NodeHoverEvent(
-          lastHoveredNodeId!,
-          type: HoverEventType.enter,
+          nodeId,
+          type: HoverEventType.exit,
           id: const Uuid().v4(),
         ),
       );
-
-      lastHoveredNodeId = null;
 
       markNeedsPaint();
     }
@@ -1214,11 +1248,11 @@ class NodeEditorRenderBox extends RenderBox
 
   /// Clears hover state for links
   void _clearLinkHover() {
-    if (lastHoveredLinkId != null &&
-        _controller.links.containsKey(lastHoveredLinkId!)) {
-      _controller.links[lastHoveredLinkId!]!.state.isHovered = false;
+    final linkId = lastHoveredLinkId;
+    lastHoveredLinkId = null;
+    if (linkId != null && _controller.links.containsKey(linkId)) {
+      _controller.links[linkId]!.state.isHovered = false;
       _controller.linksDataDirty = true;
-      lastHoveredLinkId = null;
 
       markNeedsPaint();
     }
@@ -1227,12 +1261,12 @@ class NodeEditorRenderBox extends RenderBox
   /// Clears hover state for ports
   void _clearPortHover() {
     if (lastHoveredPortLocator != null) {
-      _controller
-          .getNodeById(lastHoveredPortLocator!.$1)!
-          .ports[lastHoveredPortLocator!.$2]!
-          .state
-          .isHovered = false;
-      _controller.nodesDataDirty = true;
+      final node = _controller.getNodeById(lastHoveredPortLocator!.$1);
+      final port = node?.ports[lastHoveredPortLocator!.$2];
+      if (port != null) {
+        port.state.isHovered = false;
+        _controller.nodesDataDirty = true;
+      }
       lastHoveredPortLocator = null;
 
       markNeedsPaint();
@@ -1267,7 +1301,13 @@ class NodeEditorRenderBox extends RenderBox
 
     final Rect checkRect = Rect.fromCircle(
       center: transformedPosition,
-      radius: 6.0,
+      radius: math.max(
+        6.0,
+        math.max(
+          _controller.config.linkHitTestTolerance,
+          _controller.config.portHitTestTolerance,
+        ),
+      ),
     );
 
     // Test in priority order: Ports (highest) > Nodes > Links (lowest)
@@ -1277,6 +1317,12 @@ class NodeEditorRenderBox extends RenderBox
         hitTestLinks(transformedPosition, checkRect, event);
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _eventSubscription.cancel();
+    super.dispose();
   }
 
   /// Handles node hit events (click/hover)

@@ -119,20 +119,22 @@ class NodeEditorClipboardHelper {
   /// The nodes are then deep copied with the new IDs and added to the node editor.
   ///
   /// See [mapToNewIds] for more info on how the new IDs are generated.
-  void pasteSelection({
+  Future<void> pasteSelection({
     Offset? position,
     BuildContext? context,
+    String? clipboardContent,
   }) async {
     final strings = NodeEditorLocalizations.of(context);
 
-    final clipboardData = await Clipboard.getData('text/plain');
-    if (clipboardData == null || clipboardData.text!.isEmpty) return;
+    final clipboardText =
+        clipboardContent ?? (await Clipboard.getData('text/plain'))?.text;
+    if (clipboardText == null || clipboardText.isEmpty) return;
 
     late List<dynamic> nodesJson;
     late Rect encompassingRect;
 
     try {
-      final base64Data = utf8.decode(base64Decode(clipboardData.text!));
+      final base64Data = utf8.decode(base64Decode(clipboardText));
       final jsonData = jsonDecode(base64Data) as Map<String, dynamic>;
 
       nodesJson = jsonDecode(jsonData['nodes']) as List<dynamic>;
@@ -201,15 +203,35 @@ class NodeEditorClipboardHelper {
       );
     }).toList();
 
-    for (final node in deepCopiedNodes) {
+    final linksToRestore = <String, LinkDataModel>{};
+    final nodesWithoutLinks = deepCopiedNodes.map((node) {
+      for (final port in node.ports.values) {
+        for (final link in port.links) {
+          linksToRestore[link.id] = link;
+        }
+      }
+      return node.copyWith(
+        ports: node.ports.map(
+          (id, port) => MapEntry(
+            id,
+            port.copyWith(links: <LinkDataModel>{}),
+          ),
+        ),
+      );
+    }).toList();
+
+    for (final node in nodesWithoutLinks) {
       controller.addNodeFromExisting(node, isHandled: true);
+    }
+    for (final link in linksToRestore.values) {
+      controller.addLinkFromExisting(link, isHandled: true);
     }
 
     eventBus.emit(
       PasteSelectionEvent(
         id: const Uuid().v4(),
         position,
-        clipboardData.text!,
+        clipboardText,
       ),
     );
   }
@@ -218,9 +240,9 @@ class NodeEditorClipboardHelper {
   ///
   /// The selected nodes are copied to the clipboard and then removed from the node editor.
   /// The nodes are then removed from the node editor and the selection is cleared.
-  void cutSelection({BuildContext? context}) async {
-    final clipboardContent = await copySelection();
-    for (final id in selectedNodeIds) {
+  Future<String> cutSelection({BuildContext? context}) async {
+    final clipboardContent = await copySelection(context: context);
+    for (final id in selectedNodeIds.toList()) {
       controller.removeNodeById(id, isHandled: true);
     }
     controller.clearSelection(isHandled: true);
@@ -231,5 +253,6 @@ class NodeEditorClipboardHelper {
         clipboardContent,
       ),
     );
+    return clipboardContent;
   }
 }

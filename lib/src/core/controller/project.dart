@@ -88,7 +88,17 @@ class NodeEditorProjectHelper {
     required this.projectLoader,
     required this.projectCreator,
   }) {
-    controller.eventBus.events.listen(_handleProjectEvents);
+    _eventSubscription = controller.eventBus.events.listen(
+      _handleProjectEvents,
+    );
+  }
+
+  late final StreamSubscription<NodeEditorEvent> _eventSubscription;
+
+  void dispose() {
+    _eventSubscription.cancel();
+    _autoSaveTimer?.cancel();
+    _saveDebounceTimer?.cancel();
   }
 
   /// Handles events from the controller and manages the project state accordingly.
@@ -98,16 +108,24 @@ class NodeEditorProjectHelper {
         event is AddLinkEvent ||
         event is RemoveLinkEvent ||
         event is DragSelectionEndEvent ||
-        (event is NodeFieldEvent &&
-            event.eventType == FieldEventType.submit)) {
+        event is NodeRenameEvent ||
+        event is NodeResizeEvent ||
+        (event is NodeFieldEvent && event.eventType == FieldEventType.submit)) {
       isSaved = false;
 
       if ((_autoSaveTimer == null || !_autoSaveTimer!.isActive) &&
           controller.config.autoSave) {
-        _autoSaveTimer =
-            Timer.periodic(controller.config.autoSaveInterval, (timer) {
-          if (!isSaved) save();
-        });
+        _autoSaveTimer = Timer.periodic(
+          controller.config.autoSaveInterval,
+          (timer) {
+            if (isSaved) {
+              timer.cancel();
+              _autoSaveTimer = null;
+            } else {
+              save();
+            }
+          },
+        );
       }
     }
   }

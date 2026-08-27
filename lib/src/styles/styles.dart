@@ -149,6 +149,15 @@ class LinkStyle {
     LineDrawMode? drawMode,
     LinkCurveType? curveType,
   }) {
+    if (gradient != null && color == null) {
+      return LinkStyle.gradient(
+        gradient: gradient!,
+        lineWidth: lineWidth ?? this.lineWidth,
+        drawMode: drawMode ?? this.drawMode,
+        curveType: curveType ?? this.curveType,
+      );
+    }
+
     return LinkStyle(
       color: color ?? this.color,
       lineWidth: lineWidth ?? this.lineWidth,
@@ -193,8 +202,7 @@ class LinkStyle {
 
 typedef LinkStyleBuilder = LinkStyle Function(LinkState style);
 
-LinkStyle defaultLinkStyleBuilder(LinkState state) =>
-    const LinkStyle.basic();
+LinkStyle defaultLinkStyleBuilder(LinkState state) => const LinkStyle.basic();
 
 enum PortShape {
   circle,
@@ -239,8 +247,7 @@ class PortStyle {
 
 typedef PortStyleBuilder = PortStyle Function(PortState style);
 
-PortStyle defaultPortStyleBuilder(PortState state) =>
-    const PortStyle.basic();
+PortStyle defaultPortStyleBuilder(PortState state) => const PortStyle.basic();
 
 class FieldStyle {
   final BoxDecoration decoration;

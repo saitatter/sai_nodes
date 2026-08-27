@@ -6,61 +6,113 @@ import 'package:flutter/services.dart';
 class NodeEditorShortcutsWidget extends StatelessWidget {
   final NodeEditorController controller;
   final Widget child;
+  final Future<void> Function(BuildContext context)? onCopy;
+  final Future<void> Function(BuildContext context)? onPaste;
+  final Future<void> Function(BuildContext context)? onCut;
+  final VoidCallback? onDuplicate;
+  final void Function(LogicalKeyboardKey key, {required bool extendSelection})?
+      onMoveSelection;
 
   const NodeEditorShortcutsWidget({
     super.key,
     required this.controller,
     required this.child,
+    this.onCopy,
+    this.onPaste,
+    this.onCut,
+    this.onDuplicate,
+    this.onMoveSelection,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isMacOS = defaultTargetPlatform == TargetPlatform.macOS;
+
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
+        SingleActivator(
+          LogicalKeyboardKey.keyA,
+          control: !isMacOS,
+          meta: isMacOS,
+        ): () => controller.selectAllNodes(),
+        const SingleActivator(LogicalKeyboardKey.escape): () =>
+            controller.clearSelection(),
         const SingleActivator(LogicalKeyboardKey.delete): () {
-          for (final nodeId in controller.selectedNodeIds) {
-            controller.removeNodeById(
-              nodeId,
-              isHandled: nodeId != controller.selectedNodeIds.last,
-            );
-          }
-          for (final link in controller.selectedLinkIds) {
-            controller.removeLinkById(link);
-          }
-          controller.clearSelection();
+          controller.deleteSelection();
         },
         const SingleActivator(LogicalKeyboardKey.backspace): () {
-          for (final nodeId in controller.selectedNodeIds) {
-            controller.removeNodeById(
-              nodeId,
-              isHandled: nodeId != controller.selectedNodeIds.last,
-            );
-          }
-          for (final link in controller.selectedLinkIds) {
-            controller.removeLinkById(link);
-          }
-          controller.clearSelection();
+          controller.deleteSelection();
         },
-        const SingleActivator(LogicalKeyboardKey.keyC, control: true): () =>
+        SingleActivator(
+          LogicalKeyboardKey.keyC,
+          control: !isMacOS,
+          meta: isMacOS,
+        ): () =>
+            onCopy?.call(context) ??
             controller.clipboard.copySelection(context: context),
-        const SingleActivator(LogicalKeyboardKey.keyV, control: true): () =>
+        SingleActivator(
+          LogicalKeyboardKey.keyV,
+          control: !isMacOS,
+          meta: isMacOS,
+        ): () =>
+            onPaste?.call(context) ??
             controller.clipboard.pasteSelection(context: context),
-        const SingleActivator(LogicalKeyboardKey.keyX, control: true): () =>
+        SingleActivator(
+          LogicalKeyboardKey.keyX,
+          control: !isMacOS,
+          meta: isMacOS,
+        ): () =>
+            onCut?.call(context) ??
             controller.clipboard.cutSelection(context: context),
-        const SingleActivator(LogicalKeyboardKey.keyS, control: true): () =>
-            controller.project.save(context: context),
-        const SingleActivator(LogicalKeyboardKey.keyO, control: true): () =>
-            controller.project.load(context: context),
+        SingleActivator(
+          LogicalKeyboardKey.keyD,
+          control: !isMacOS,
+          meta: isMacOS,
+        ): () => onDuplicate?.call(),
+        for (final key in const [
+          LogicalKeyboardKey.arrowLeft,
+          LogicalKeyboardKey.arrowRight,
+          LogicalKeyboardKey.arrowUp,
+          LogicalKeyboardKey.arrowDown,
+        ])
+          SingleActivator(key): () =>
+              onMoveSelection?.call(key, extendSelection: false),
+        for (final key in const [
+          LogicalKeyboardKey.arrowLeft,
+          LogicalKeyboardKey.arrowRight,
+          LogicalKeyboardKey.arrowUp,
+          LogicalKeyboardKey.arrowDown,
+        ])
+          SingleActivator(
+            key,
+            shift: true,
+          ): () => onMoveSelection?.call(key, extendSelection: true),
+        SingleActivator(
+          LogicalKeyboardKey.keyS,
+          control: !isMacOS,
+          meta: isMacOS,
+        ): () => controller.project.save(context: context),
+        SingleActivator(
+          LogicalKeyboardKey.keyO,
+          control: !isMacOS,
+          meta: isMacOS,
+        ): () => controller.project.load(context: context),
         SingleActivator(
           LogicalKeyboardKey.keyN,
           control: defaultTargetPlatform != TargetPlatform.macOS,
           meta: defaultTargetPlatform == TargetPlatform.macOS,
           shift: true,
         ): () => controller.project.create(context: context),
-        const SingleActivator(LogicalKeyboardKey.keyZ, control: true): () =>
-            controller.history.undo(),
-        const SingleActivator(LogicalKeyboardKey.keyY, control: true): () =>
-            controller.history.redo(),
+        SingleActivator(
+          LogicalKeyboardKey.keyZ,
+          control: !isMacOS,
+          meta: isMacOS,
+        ): () => controller.history.undo(),
+        SingleActivator(
+          LogicalKeyboardKey.keyY,
+          control: !isMacOS,
+          meta: isMacOS,
+        ): () => controller.history.redo(),
       },
       child: Focus(autofocus: true, child: child),
     );

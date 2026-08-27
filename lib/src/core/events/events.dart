@@ -166,6 +166,16 @@ final class DragSelectionEndEvent extends NodeEditorEvent {
   }
 }
 
+final class NodeLayoutEvent extends NodeEditorEvent {
+  final Set<String> nodeIds;
+
+  const NodeLayoutEvent(
+    this.nodeIds, {
+    required super.id,
+    super.isHandled,
+  });
+}
+
 /// Event produced when the user selects or deselects a group of links (one or more).
 final class LinkSelectionEvent extends NodeEditorEvent {
   final SelectionEventType type;
@@ -305,6 +315,36 @@ final class RemoveNodeEvent extends NodeEditorEvent {
   }
 }
 
+/// Event produced when an individual node title changes.
+final class NodeRenameEvent extends NodeEditorEvent {
+  final String nodeId;
+  final String? oldTitle;
+  final String? newTitle;
+
+  const NodeRenameEvent(
+    this.nodeId, {
+    required this.oldTitle,
+    required this.newTitle,
+    required super.id,
+    super.isHandled,
+  }) : super(isUndoable: true);
+}
+
+/// Event produced when an individual node receives or clears a fixed size.
+final class NodeResizeEvent extends NodeEditorEvent {
+  final String nodeId;
+  final Size? oldSize;
+  final Size? newSize;
+
+  const NodeResizeEvent(
+    this.nodeId, {
+    required this.oldSize,
+    required this.newSize,
+    required super.id,
+    super.isHandled,
+  }) : super(isUndoable: true);
+}
+
 /// Event produced when the creates a new link between two nodes.
 final class AddLinkEvent extends NodeEditorEvent {
   final LinkDataModel link;
@@ -354,8 +394,11 @@ final class RemoveLinkEvent extends NodeEditorEvent {
 
 /// Event produced when the user collapses or expands a group of nodes (can be used for any widget changes that require layout updates).
 final class CollapseNodeEvent extends NodeEditorEvent {
+  /// Legacy misspelled field retained for source compatibility.
   final bool collpased;
   final Set<String> nodeIds;
+
+  bool get collapsed => collpased;
 
   const CollapseNodeEvent(
     this.collpased,

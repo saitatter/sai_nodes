@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../core/controller/core.dart';
 import 'builders.dart';
 import 'node_editor_data_layer.dart';
+import 'node_editor_context_menu.dart';
 
 class NodeEditorWidget extends StatelessWidget {
   final NodeEditorController controller;
@@ -16,7 +17,11 @@ class NodeEditorWidget extends StatelessWidget {
   final NodeFieldBuilder? fieldBuilder;
   final NodePortBuilder? portBuilder;
   final NodeContextMenuBuilder? contextMenuBuilder;
+  final EditorContextMenuBuilder? editorContextMenuBuilder;
+  final NodeEditorMenuBuilder? nodeEditorMenuBuilder;
+  final NodeMenuBuilder? nodeMenuBuilder;
   final NodeBuilder? nodeBuilder;
+  final NodeResizeBuilder? resizeBuilder;
 
   const NodeEditorWidget({
     super.key,
@@ -28,7 +33,11 @@ class NodeEditorWidget extends StatelessWidget {
     this.fieldBuilder,
     this.portBuilder,
     this.contextMenuBuilder,
+    this.editorContextMenuBuilder,
+    this.nodeEditorMenuBuilder,
+    this.nodeMenuBuilder,
     this.nodeBuilder,
+    this.resizeBuilder,
   });
 
   @override
@@ -53,7 +62,11 @@ class NodeEditorWidget extends StatelessWidget {
               fieldBuilder: fieldBuilder,
               portBuilder: portBuilder,
               contextMenuBuilder: contextMenuBuilder,
+              editorContextMenuBuilder: editorContextMenuBuilder,
+              nodeEditorMenuBuilder: nodeEditorMenuBuilder,
+              nodeMenuBuilder: nodeMenuBuilder,
               nodeBuilder: nodeBuilder,
+              resizeBuilder: resizeBuilder,
             ),
           ),
           ...overlay().map(

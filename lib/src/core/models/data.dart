@@ -8,7 +8,19 @@ import 'package:uuid/uuid.dart';
 
 typedef LocalizedString = String Function(BuildContext context);
 
+/// Legacy link endpoint tuple.
+///
+/// The historical field names are retained for serialization compatibility.
+/// Prefer the semantic getters in [FromToEndpoints] when reading endpoints.
 typedef FromTo = ({String from, String to, String fromPort, String toPort});
+
+/// Semantic aliases for the legacy [FromTo] endpoint fields.
+extension FromToEndpoints on FromTo {
+  String get sourceNodeId => from;
+  String get sourcePortId => to;
+  String get targetNodeId => fromPort;
+  String get targetPortId => toPort;
+}
 
 /// The state of a link painted on the canvas.
 class LinkState {
@@ -435,8 +447,8 @@ final class NodeState {
 
   factory NodeState.fromJson(Map<String, dynamic> json) {
     return NodeState(
-      isSelected: json['isSelected'],
-      isCollapsed: json['isCollapsed'],
+      isSelected: json['isSelected'] == true,
+      isCollapsed: json['isCollapsed'] == true,
     );
   }
 
@@ -474,6 +486,11 @@ final class NodeDataModel {
   final Map<String, FieldDataModel> fields;
   final NodeState state;
   Offset offset; // User or system defined offset
+  /// Optional instance title. When null, the prototype display name is used.
+  String? customTitle;
+
+  /// Optional fixed size. When null, the node sizes itself from its contents.
+  Size? customSize;
   final GlobalKey key = GlobalKey(); // Determined by Flutter
 
   NodeDataModel({
@@ -483,6 +500,8 @@ final class NodeDataModel {
     required this.fields,
     required this.state,
     this.offset = Offset.zero,
+    this.customTitle,
+    this.customSize,
   });
 
   NodeDataModel copyWith({
@@ -493,6 +512,10 @@ final class NodeDataModel {
     NodeState? state,
     Function(NodeDataModel node)? onRendered,
     Offset? offset,
+    String? customTitle,
+    Size? customSize,
+    bool clearCustomTitle = false,
+    bool clearCustomSize = false,
   }) {
     return NodeDataModel(
       id: id ?? this.id,
@@ -501,8 +524,14 @@ final class NodeDataModel {
       state: state ?? this.state,
       fields: fields ?? this.fields,
       offset: offset ?? this.offset,
+      customTitle: clearCustomTitle ? null : customTitle ?? this.customTitle,
+      customSize: clearCustomSize ? null : customSize ?? this.customSize,
     );
   }
+
+  /// Returns the instance title or the prototype's localized display name.
+  String displayTitle(BuildContext context) =>
+      customTitle ?? prototype.displayName(context);
 
   Map<String, dynamic> toJson(Map<String, DataHandler> dataHandlers) {
     return {
@@ -512,6 +541,8 @@ final class NodeDataModel {
       'fields': fields.map((k, v) => MapEntry(k, v.toJson(dataHandlers))),
       'state': state.toJson(),
       'offset': [offset.dx, offset.dy],
+      if (customTitle != null) 'customTitle': customTitle,
+      if (customSize != null) 'size': [customSize!.width, customSize!.height],
     };
   }
 
@@ -563,6 +594,13 @@ final class NodeDataModel {
       fields: fields,
       state: NodeState(isCollapsed: json['state']['isCollapsed']),
       offset: Offset(json['offset'][0], json['offset'][1]),
+      customTitle: (json['customTitle'] ?? json['title'])?.toString(),
+      customSize: json['size'] is List
+          ? Size(
+              (json['size'][0] as num).toDouble(),
+              (json['size'][1] as num).toDouble(),
+            )
+          : null,
     );
 
     return instance;

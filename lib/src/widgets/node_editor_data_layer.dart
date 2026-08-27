@@ -12,6 +12,7 @@ import 'package:sai_nodes/src/styles/styles.dart';
 import 'package:sai_nodes/src/widgets/builders.dart';
 import 'package:sai_nodes/src/widgets/context_menu.dart';
 import 'package:sai_nodes/src/widgets/improved_listener.dart';
+import 'package:sai_nodes/src/widgets/node_editor_context_menu.dart';
 import 'package:sai_nodes/src/widgets/node_editor_render_object.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -29,7 +30,11 @@ class NodeEditorDataLayer extends StatefulWidget {
   final NodeFieldBuilder? fieldBuilder;
   final NodePortBuilder? portBuilder;
   final NodeContextMenuBuilder? contextMenuBuilder;
+  final EditorContextMenuBuilder? editorContextMenuBuilder;
+  final NodeEditorMenuBuilder? nodeEditorMenuBuilder;
+  final NodeMenuBuilder? nodeMenuBuilder;
   final NodeBuilder? nodeBuilder;
+  final NodeResizeBuilder? resizeBuilder;
 
   const NodeEditorDataLayer({
     super.key,
@@ -41,14 +46,18 @@ class NodeEditorDataLayer extends StatefulWidget {
     this.fieldBuilder,
     this.portBuilder,
     this.contextMenuBuilder,
+    this.editorContextMenuBuilder,
+    this.nodeEditorMenuBuilder,
+    this.nodeMenuBuilder,
     this.nodeBuilder,
+    this.resizeBuilder,
   });
 
   @override
   State<NodeEditorDataLayer> createState() => _NodeEditorDataLayerState();
 }
 
-typedef _TempLink = ({String nodeId, String portId});
+typedef _PortLocator = ({String nodeId, String portId});
 
 class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
     with TickerProviderStateMixin {
@@ -70,7 +79,7 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
   Offset _kineticEnergy = Offset.zero;
   Timer? _kineticTimer;
   Offset _selectionStart = Offset.zero;
-  _TempLink? _tempLink;
+  _PortLocator? _tempLink;
 
   // Gesture recognizers
   late final ScaleGestureRecognizer _trackpadGestureRecognizer;
@@ -79,21 +88,27 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
   void initState() {
     super.initState();
 
-    widget.controller.eventBus.events.listen(_handleControllerEvents);
+    _eventSubscription = widget.controller.eventBus.events.listen(
+      _handleControllerEvents,
+    );
 
     widget.controller.setTickerProvider(this);
 
     _trackpadGestureRecognizer = ScaleGestureRecognizer()
-      ..onStart = ((details) => _onDragStart)
+      ..onStart = ((details) => _onDragStart())
       ..onUpdate = _onScaleUpdate
-      ..onEnd = ((details) => _onDragEnd);
+      ..onEnd = ((details) => _onDragEnd());
   }
 
   @override
   void dispose() {
+    _kineticTimer?.cancel();
     _trackpadGestureRecognizer.dispose();
+    _eventSubscription.cancel();
     super.dispose();
   }
+
+  late final StreamSubscription<NodeEditorEvent> _eventSubscription;
 
   void _handleControllerEvents(NodeEditorEvent event) {
     if (!mounted || event.isHandled) return;
@@ -188,7 +203,7 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
     _selectionStart = Offset.zero;
   }
 
-  _TempLink? _isNearPort(Offset position) {
+  _PortLocator? _isNearPort(Offset position) {
     final worldPosition = RenderBoxUtils.screenToWorld(
       editorKey,
       position,
@@ -210,7 +225,8 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
       for (final port in node.ports.values) {
         final absolutePortPosition = node.offset + port.offset;
 
-        if ((worldPosition - absolutePortPosition).distance < 12) {
+        if ((worldPosition - absolutePortPosition).distance <=
+            widget.controller.config.portHitTestTolerance) {
           return (nodeId: node.id, portId: port.prototype.idName);
         }
       }
@@ -219,7 +235,7 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
     return null;
   }
 
-  void _onLinkStart(_TempLink locator) {
+  void _onLinkStart(_PortLocator locator) {
     _tempLink = (nodeId: locator.nodeId, portId: locator.portId);
     _isLinking = true;
   }
@@ -250,7 +266,7 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
     widget.controller.clearTempLink();
   }
 
-  void _onLinkEnd(_TempLink locator) {
+  void _onLinkEnd(_PortLocator locator) {
     widget.controller.addLink(
       _tempLink!.nodeId,
       _tempLink!.portId,
@@ -549,9 +565,36 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
       ];
     }
 
+    List<ContextMenuEntry> showEditorContextMenuEntries(Offset position) {
+      final defaults = editorContextMenuEntries(position);
+      return widget.editorContextMenuBuilder?.call(
+            context,
+            position,
+            defaults,
+          ) ??
+          defaults;
+    }
+
+    void showEditorMenu(Offset position) {
+      final menuBuilder = widget.nodeEditorMenuBuilder;
+      if (menuBuilder != null) {
+        showNodeEditorContextMenu(
+          context,
+          position: position,
+          entries: menuBuilder(context, position),
+        );
+      } else if (!isContextMenuVisible) {
+        createAndShowContextMenu(
+          context,
+          entries: showEditorContextMenuEntries(position),
+          position: position,
+        );
+      }
+    }
+
     List<ContextMenuEntry> portContextMenuEntries(
       Offset position, {
-      required _TempLink locator,
+      required _PortLocator locator,
     }) {
       final strings = NodeEditorLocalizations.of(context);
 
@@ -586,12 +629,8 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
                     entries: portContextMenuEntries(position, locator: locator),
                     position: position,
                   );
-                } else if (!isContextMenuVisible) {
-                  createAndShowContextMenu(
-                    context,
-                    entries: editorContextMenuEntries(position),
-                    position: position,
-                  );
+                } else {
+                  showEditorMenu(position);
                 }
               },
               onScaleStart: (ScaleStartDetails details) {
@@ -628,8 +667,7 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
                     _onDragUpdate(details.focalPointDelta);
                   }
                   if (widget.controller.config.enableZoom &&
-                          details.scale > 1.5 ||
-                      details.scale < 0.5) {
+                      (details.scale > 1.5 || details.scale < 0.5)) {
                     _setZoomFromRawInput(
                       details.scale < 1 ? details.scale : -details.scale,
                       details.focalPoint,
@@ -701,13 +739,9 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
                         ),
                         position: event.position,
                       );
-                    } else if (!isContextMenuVisible) {
-                      // Else show the editor context menu
-                      createAndShowContextMenu(
-                        context,
-                        entries: editorContextMenuEntries(event.position),
-                        position: event.position,
-                      );
+                    } else {
+                      // Else show the editor context menu.
+                      showEditorMenu(event.position);
                     }
                   }
                 },
@@ -781,7 +815,9 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
             portBuilder: widget.portBuilder,
             fieldBuilder: widget.fieldBuilder,
             contextMenuBuilder: widget.contextMenuBuilder,
+            nodeMenuBuilder: widget.nodeMenuBuilder,
             nodeBuilder: widget.nodeBuilder,
+            resizeBuilder: widget.resizeBuilder,
           ),
         ),
       ),

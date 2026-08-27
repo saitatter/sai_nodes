@@ -6,6 +6,7 @@ import 'package:sai_nodes/src/core/localization/delegate.dart';
 import 'package:sai_nodes/src/core/utils/rendering/renderbox.dart';
 import 'package:sai_nodes/src/widgets/context_menu.dart';
 import 'package:sai_nodes/src/widgets/improved_listener.dart';
+import 'package:sai_nodes/src/widgets/node_editor_context_menu.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -17,7 +18,7 @@ import '../constants.dart';
 import '../core/models/data.dart';
 import 'builders.dart';
 
-typedef _TempLink = ({String nodeId, String portId});
+typedef _PortLocator = ({String nodeId, String portId});
 
 /// The main NodeWidget which represents a node in the editor.
 /// It now ensures that fields (regardless of whether a custom fieldBuilder is used)
@@ -29,7 +30,9 @@ class DefaultNodeWidget extends StatefulWidget {
   final NodeFieldBuilder? fieldBuilder;
   final NodePortBuilder? portBuilder;
   final NodeContextMenuBuilder? contextMenuBuilder;
+  final NodeMenuBuilder? nodeMenuBuilder;
   final NodeBuilder? nodeBuilder;
+  final NodeResizeBuilder? resizeBuilder;
 
   const DefaultNodeWidget({
     super.key,
@@ -39,7 +42,9 @@ class DefaultNodeWidget extends StatefulWidget {
     this.headerBuilder,
     this.portBuilder,
     this.contextMenuBuilder,
+    this.nodeMenuBuilder,
     this.nodeBuilder,
+    this.resizeBuilder,
   });
 
   @override
@@ -57,13 +62,14 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
   Offset? _lastPanPosition;
 
   // Temporary link locator used during linking.
-  _TempLink? _tempLink;
+  _PortLocator? _tempLink;
 
   late Color fakeTransparentColor;
 
   late List<PortDataModel> inPorts;
   late List<PortDataModel> outPorts;
   late List<FieldDataModel> fields;
+  late final StreamSubscription<NodeEditorEvent> _eventSubscription;
 
   double get viewportZoom => widget.controller.viewportZoom;
   Offset get viewportOffset => widget.controller.viewportOffset;
@@ -81,12 +87,15 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
       _updatePortsPosition();
     });
 
-    widget.controller.eventBus.events.listen(_handleControllerEvents);
+    _eventSubscription = widget.controller.eventBus.events.listen(
+      _handleControllerEvents,
+    );
   }
 
   @override
   void dispose() {
     _edgeTimer?.cancel();
+    _eventSubscription.cancel();
     super.dispose();
   }
 
@@ -113,6 +122,12 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
       SchedulerBinding.instance.addPostFrameCallback((_) async {
         if (mounted) _updatePortsPosition();
       });
+    } else if (event is NodeLayoutEvent) {
+      if (!event.nodeIds.contains(widget.node.id)) return;
+
+      SchedulerBinding.instance.addPostFrameCallback((_) async {
+        if (mounted) _updatePortsPosition();
+      });
     } else if (event is NodeSelectionEvent) {
       if (event.nodeIds.contains(widget.node.id)) _updateStyleCache();
     } else if (event is NodeHoverEvent) {
@@ -130,6 +145,17 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
           (event.eventType == FieldEventType.submit ||
               event.eventType == FieldEventType.cancel)) {
         setState(() {});
+      }
+    } else if (event is NodeRenameEvent) {
+      if (event.nodeId != widget.node.id) return;
+      setState(() {});
+    } else if (event is NodeResizeEvent) {
+      if (event.nodeId != widget.node.id) return;
+      setState(() {});
+      {
+        SchedulerBinding.instance.addPostFrameCallback((_) async {
+          if (mounted) _updatePortsPosition();
+        });
       }
     } else if (event is AddNodeEvent) {
       if (event.node.id == widget.node.id) setState(() {});
@@ -183,7 +209,7 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
     _edgeTimer?.cancel();
   }
 
-  _TempLink? _isNearPort(Offset position) {
+  _PortLocator? _isNearPort(Offset position) {
     final worldPosition = RenderBoxUtils.screenToWorld(
       editorKey,
       position,
@@ -203,7 +229,8 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
       final node = widget.controller.getNodeById(nodeId)!;
       for (final port in node.ports.values) {
         final absolutePortPosition = node.offset + port.offset;
-        if ((worldPosition - absolutePortPosition).distance < 4) {
+        if ((worldPosition - absolutePortPosition).distance <=
+            widget.controller.config.portHitTestTolerance) {
           return (nodeId: node.id, portId: port.prototype.idName);
         }
       }
@@ -212,7 +239,7 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
     return null;
   }
 
-  void _onTmpLinkStart(_TempLink locator) {
+  void _onTmpLinkStart(_PortLocator locator) {
     _tempLink = (nodeId: locator.nodeId, portId: locator.portId);
     _isLinking = true;
   }
@@ -241,7 +268,7 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
     widget.controller.clearTempLink();
   }
 
-  void _onTmpLinkEnd(_TempLink locator) {
+  void _onTmpLinkEnd(_PortLocator locator) {
     widget.controller.addLink(
       _tempLink!.nodeId,
       _tempLink!.portId,
@@ -277,18 +304,9 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
                   entries: _portContextMenuEntries(position, locator: locator),
                   position: position,
                 );
-              } else if (!isContextMenuVisible) {
+              } else {
                 widget.controller.selectNodesById({widget.node.id});
-
-                final entries = widget.contextMenuBuilder != null
-                    ? widget.contextMenuBuilder!(context, widget.node)
-                    : _defaultNodeContextMenuEntries();
-
-                createAndShowContextMenu(
-                  context,
-                  entries: entries,
-                  position: position,
-                );
+                _showNodeContextMenu(position);
               }
             },
             onPanDown: (details) {
@@ -359,15 +377,8 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
                     ),
                     position: event.position,
                   );
-                } else if (!isContextMenuVisible) {
-                  final entries = widget.contextMenuBuilder != null
-                      ? widget.contextMenuBuilder!(context, widget.node)
-                      : _defaultNodeContextMenuEntries();
-                  createAndShowContextMenu(
-                    context,
-                    entries: entries,
-                    position: event.position,
-                  );
+                } else {
+                  _showNodeContextMenu(event.position);
                 }
               } else if (event.buttons == kPrimaryMouseButton) {
                 if (locator != null && !_isLinking && _tempLink == null) {
@@ -452,16 +463,11 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
         icon: Icons.delete,
         onSelected: () {
           if (widget.node.state.isSelected) {
-            for (final nodeId in widget.controller.selectedNodeIds) {
-              widget.controller.removeNodeById(nodeId);
-            }
+            widget.controller.deleteSelection();
           } else {
-            for (final nodeId in widget.controller.selectedNodeIds) {
-              widget.controller.removeNodeById(nodeId);
-            }
+            widget.controller.removeNodeById(widget.node.id);
+            widget.controller.clearSelection();
           }
-
-          widget.controller.clearSelection();
         },
       ),
       MenuItem(
@@ -479,9 +485,29 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
     ];
   }
 
+  void _showNodeContextMenu(Offset position) {
+    final menuBuilder = widget.nodeMenuBuilder;
+    if (menuBuilder != null) {
+      showNodeEditorContextMenu(
+        context,
+        position: position,
+        entries: menuBuilder(context, widget.node),
+      );
+    } else if (!isContextMenuVisible) {
+      final entries = widget.contextMenuBuilder != null
+          ? widget.contextMenuBuilder!(context, widget.node)
+          : _defaultNodeContextMenuEntries();
+      createAndShowContextMenu(
+        context,
+        entries: entries,
+        position: position,
+      );
+    }
+  }
+
   List<ContextMenuEntry> _portContextMenuEntries(
     Offset position, {
-    required _TempLink locator,
+    required _PortLocator locator,
   }) {
     final strings = NodeEditorLocalizations.of(context);
 
@@ -565,95 +591,131 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
       return widget.nodeBuilder!(context, widget.node);
     }
 
-    return controlsWrapper(
-      IntrinsicHeight(
-        child: IntrinsicWidth(
-          child: Stack(
-            key: widget.node.key,
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                decoration: widget.node.builtStyle.decoration,
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  widget.headerBuilder != null
-                      ? widget.headerBuilder!(
-                          context,
-                          widget.node,
-                          widget.node.builtStyle,
-                          () => widget.controller.toggleCollapseSelectedNodes(
-                            !widget.node.state.isCollapsed,
-                          ),
-                        )
-                      : _NodeHeaderWidget(
-                          controller: widget.controller,
-                          node: widget.node,
-                        ),
-                  Offstage(
-                    offstage: widget.node.state.isCollapsed,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Flexible(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: inPorts
-                                      .map(
-                                        (port) => _PortWidget(
-                                          node: widget.node,
-                                          port: port,
-                                          portBuilder: widget.portBuilder,
-                                        ),
-                                      )
-                                      .toList(),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Flexible(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: outPorts
-                                      .map(
-                                        (port) => _PortWidget(
-                                          node: widget.node,
-                                          port: port,
-                                          portBuilder: widget.portBuilder,
-                                        ),
-                                      )
-                                      .toList(),
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (fields.isNotEmpty) const SizedBox(height: 16),
-                          ...fields.map(
-                            (field) => _FieldWidget(
-                              controller: widget.controller,
-                              node: widget.node,
-                              field: field,
-                              fieldBuilder: widget.fieldBuilder,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+    final nodeContent = Stack(
+      key: widget.node.key,
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: widget.node.builtStyle.decoration,
           ),
         ),
-      ),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            widget.headerBuilder != null
+                ? widget.headerBuilder!(
+                    context,
+                    widget.node,
+                    widget.node.builtStyle,
+                    () => widget.controller.toggleCollapseSelectedNodes(
+                      !widget.node.state.isCollapsed,
+                    ),
+                  )
+                : _NodeHeaderWidget(
+                    controller: widget.controller,
+                    node: widget.node,
+                  ),
+            Offstage(
+              offstage: widget.node.state.isCollapsed,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: inPorts
+                                .map(
+                                  (port) => _PortWidget(
+                                    node: widget.node,
+                                    port: port,
+                                    portBuilder: widget.portBuilder,
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: outPorts
+                                .map(
+                                  (port) => _PortWidget(
+                                    node: widget.node,
+                                    port: port,
+                                    portBuilder: widget.portBuilder,
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (fields.isNotEmpty) const SizedBox(height: 16),
+                    ...fields.map(
+                      (field) => _FieldWidget(
+                        controller: widget.controller,
+                        node: widget.node,
+                        field: field,
+                        fieldBuilder: widget.fieldBuilder,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (widget.resizeBuilder != null)
+          Positioned(
+            right: 4,
+            bottom: 4,
+            child: widget.resizeBuilder!(
+              context,
+              widget.node,
+              (size) => widget.controller.resizeNode(
+                widget.node.id,
+                size,
+              ),
+            ),
+          ),
+        if (widget.resizeBuilder == null &&
+            widget.controller.config.enableNodeResize)
+          Positioned(
+            right: 2,
+            bottom: 2,
+            child: _DefaultNodeResizeHandle(
+              node: widget.node,
+              zoom: viewportZoom,
+              onResize: (size) => widget.controller.resizeNode(
+                widget.node.id,
+                size,
+              ),
+            ),
+          ),
+      ],
     );
+
+    final fixedSize = widget.node.customSize;
+    final sizedNode = fixedSize == null
+        ? IntrinsicHeight(
+            child: IntrinsicWidth(child: nodeContent),
+          )
+        : SizedBox(
+            width: fixedSize.width,
+            height: fixedSize.height,
+            child: nodeContent,
+          );
+
+    return controlsWrapper(sizedNode);
   }
 
   void _updateStyleCache() {
@@ -717,6 +779,64 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
   }
 }
 
+class _DefaultNodeResizeHandle extends StatefulWidget {
+  const _DefaultNodeResizeHandle({
+    required this.node,
+    required this.zoom,
+    required this.onResize,
+  });
+
+  final NodeDataModel node;
+  final double zoom;
+  final void Function(Size size) onResize;
+
+  @override
+  State<_DefaultNodeResizeHandle> createState() =>
+      _DefaultNodeResizeHandleState();
+}
+
+class _DefaultNodeResizeHandleState extends State<_DefaultNodeResizeHandle> {
+  Size? _size;
+
+  void _startResize() {
+    final renderBox = widget.node.key.currentContext?.findRenderObject();
+    final renderedSize = renderBox is RenderBox ? renderBox.size : null;
+    final size = widget.node.customSize ?? renderedSize;
+    if (size == null || size.width <= 0 || size.height <= 0) return;
+    _size = size;
+  }
+
+  void _updateResize(DragUpdateDetails details) {
+    final size = _size;
+    if (size == null) return;
+    _size = Size(
+      size.width + details.delta.dx / widget.zoom,
+      size.height + details.delta.dy / widget.zoom,
+    );
+    widget.onResize(_size!);
+  }
+
+  void _endResize() => _size = null;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeDownRight,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanStart: (_) => _startResize(),
+        onPanUpdate: _updateResize,
+        onPanEnd: (_) => _endResize(),
+        child: const SizedBox(
+          width: 18,
+          height: 18,
+          child: Icon(Icons.open_in_full, size: 13),
+        ),
+      ),
+    );
+  }
+}
+
 class _NodeHeaderWidget extends StatelessWidget {
   final NodeEditorController controller;
   final NodeDataModel node;
@@ -749,7 +869,7 @@ class _NodeHeaderWidget extends StatelessWidget {
           const SizedBox(width: 8),
           Flexible(
             child: Text(
-              node.prototype.displayName(context),
+              node.displayTitle(context),
               style: node.builtHeaderStyle.textStyle,
               overflow: TextOverflow.ellipsis,
             ),
