@@ -108,7 +108,12 @@ void main() {
         id: 'label',
       ),
       const DragSelectionEvent({'node'}, Offset(10, 10), id: 'drag'),
-      const NodeLayoutEvent({'node'}, id: 'layout'),
+      const NodeLayoutEvent(
+        {'node'},
+        id: 'layout',
+        previousPositions: {'node': Offset.zero},
+        nextPositions: {'node': Offset(10, 10)},
+      ),
       const PasteSelectionEvent(Offset.zero, 'payload', id: 'paste'),
       const CutSelectionEvent('payload', id: 'cut'),
       const NodeFieldEvent(
