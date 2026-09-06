@@ -37,4 +37,9 @@ jobs:
         run: flutter test
 
       - name: Validate publish archive
-        run: flutter pub publish --dry-run
+        shell: bash
+        run: |
+          package_dir="$(mktemp -d)"
+          git archive --format=tar HEAD | tar -x -C "$package_dir"
+          cd "$package_dir"
+          flutter pub publish --dry-run
