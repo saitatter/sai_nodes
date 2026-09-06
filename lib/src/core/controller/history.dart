@@ -145,6 +145,12 @@ class NodeEditorHistoryHelper {
         controller.removeLinkById(event.link.id, eventId: event.id);
       } else if (event is RemoveLinkEvent) {
         controller.addLinkFromExisting(event.link, eventId: event.id);
+      } else if (event is NodeLayoutEvent) {
+        controller.applyLayout(
+          event.previousPositions,
+          eventId: event.id,
+          isHandled: true,
+        );
       }
     } finally {
       _isTraversingHistory = false;
@@ -210,6 +216,12 @@ class NodeEditorHistoryHelper {
         controller.removeLinkById(
           event.link.id,
           eventId: event.id,
+        );
+      } else if (event is NodeLayoutEvent) {
+        controller.applyLayout(
+          event.nextPositions,
+          eventId: event.id,
+          isHandled: true,
         );
       }
     } finally {

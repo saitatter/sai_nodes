@@ -168,12 +168,30 @@ final class DragSelectionEndEvent extends NodeEditorEvent {
 
 final class NodeLayoutEvent extends NodeEditorEvent {
   final Set<String> nodeIds;
+  final Map<String, Offset> previousPositions;
+  final Map<String, Offset> nextPositions;
 
-  const NodeLayoutEvent(
+  NodeLayoutEvent(
     this.nodeIds, {
     required super.id,
     super.isHandled,
-  });
+    Map<String, Offset>? previousPositions,
+    Map<String, Offset>? nextPositions,
+  }) : previousPositions = Map.unmodifiable(previousPositions ?? const {}),
+       nextPositions = Map.unmodifiable(nextPositions ?? const {}),
+       super(isUndoable: true);
+
+  @override
+  Map<String, dynamic> toJson(dataHandlers) => {
+        ...super.toJson(dataHandlers),
+        'nodeIds': nodeIds.toList(),
+        'previousPositions': previousPositions.map(
+          (id, offset) => MapEntry(id, [offset.dx, offset.dy]),
+        ),
+        'nextPositions': nextPositions.map(
+          (id, offset) => MapEntry(id, [offset.dx, offset.dy]),
+        ),
+      };
 }
 
 /// Event produced when the user selects or deselects a group of links (one or more).

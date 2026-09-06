@@ -2,11 +2,15 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:sai_nodes/src/core/controller/callback.dart';
+import 'package:sai_nodes/src/core/controller/content_revision.dart';
 import 'package:sai_nodes/src/core/controller/history.dart';
+import 'package:sai_nodes/src/core/controller/navigation.dart';
 import 'package:sai_nodes/src/core/controller/project.dart';
+import 'package:sai_nodes/src/core/controller/viewport_transform.dart';
 import 'package:sai_nodes/src/core/events/events.dart';
 import 'package:sai_nodes/src/core/utils/dsa/spatial_hash_grid.dart';
 import 'package:sai_nodes/src/core/utils/rendering/renderbox.dart';
+import 'package:flutter/foundation.dart';
 import 'package:sai_nodes/src/styles/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -32,6 +36,8 @@ export 'config.dart';
 /// sending and receiving events.
 class NodeEditorController with ChangeNotifier {
   Callback? onCallback;
+  final NodeEditorClipboardPayloadEncoder? clipboardPayloadEncoder;
+  final NodeEditorClipboardPayloadDecoder? clipboardPayloadDecoder;
   GlobalKey editorKey;
 
   NodeEditorController({
@@ -41,9 +47,15 @@ class NodeEditorController with ChangeNotifier {
     ProjectLoader? projectLoader,
     ProjectCreator? projectCreator,
     this.onCallback,
+    this.clipboardPayloadEncoder,
+    this.clipboardPayloadDecoder,
     GlobalKey? editorKey,
   }) : editorKey = editorKey ?? GlobalKey() {
-    clipboard = NodeEditorClipboardHelper(this);
+    clipboard = NodeEditorClipboardHelper(
+      this,
+      payloadEncoder: clipboardPayloadEncoder,
+      payloadDecoder: clipboardPayloadDecoder,
+    );
     runner = NodeEditorExecutionHelper(this);
     history = NodeEditorHistoryHelper(this);
     project = NodeEditorProjectHelper(
@@ -52,7 +64,14 @@ class NodeEditorController with ChangeNotifier {
       projectLoader: projectLoader,
       projectCreator: projectCreator,
     );
-    _stateEventSubscription = eventBus.events.listen((_) => notifyListeners());
+    _stateEventSubscription = eventBus.events.listen(_handleStateEvent);
+  }
+
+  void _handleStateEvent(NodeEditorEvent event) {
+    notifyListeners();
+    if (isNodeEditorContentMutation(event)) {
+      contentRevisionNotifier.value++;
+    }
   }
 
   /// This method is used to dispose of the node editor controller and all of its resources, subsystems and members.
@@ -72,6 +91,7 @@ class NodeEditorController with ChangeNotifier {
     clear();
     viewportOffsetNotifier.dispose();
     viewportZoomNotifier.dispose();
+    contentRevisionNotifier.dispose();
 
     super.dispose();
   }
@@ -141,9 +161,33 @@ class NodeEditorController with ChangeNotifier {
   final ValueNotifier<Offset> viewportOffsetNotifier =
       ValueNotifier(Offset.zero);
   final ValueNotifier<double> viewportZoomNotifier = ValueNotifier(1.0);
+  /// Increases whenever an event changes persisted node-editor content.
+  final ValueNotifier<int> contentRevisionNotifier = ValueNotifier(0);
+
+  ValueListenable<int> get contentRevision => contentRevisionNotifier;
 
   Offset get viewportOffset => viewportOffsetNotifier.value;
   double get viewportZoom => viewportZoomNotifier.value;
+
+  /// Returns the coordinate transform for the current viewport state.
+  NodeEditorViewportTransform viewportTransform(Size viewportSize) =>
+      NodeEditorViewportTransform(
+        viewportSize: viewportSize,
+        viewportOffset: viewportOffset,
+        zoom: viewportZoom,
+      );
+
+  /// Converts a local editor-screen position into world coordinates.
+  Offset screenToWorld(Offset screenPosition, Size viewportSize) =>
+      viewportTransform(viewportSize).screenToWorld(screenPosition);
+
+  /// Converts a world position into local editor-screen coordinates.
+  Offset worldToScreen(Offset worldPosition, Size viewportSize) =>
+      viewportTransform(viewportSize).worldToScreen(worldPosition);
+
+  /// Returns the world rectangle currently visible in an editor viewport.
+  Rect visibleWorldBounds(Size viewportSize) =>
+      viewportTransform(viewportSize).visibleWorldBounds;
 
   /// This method is used to set the offset of the viewport.
   ///
@@ -1067,6 +1111,36 @@ class NodeEditorController with ChangeNotifier {
     );
   }
 
+  /// Moves the selection to the nearest node in [direction].
+  ///
+  /// Hosts can map keyboard or accessibility actions to this method without
+  /// reimplementing node geometry. Returns the selected node ID, or `null`
+  /// when there is no current selection or no node in that direction.
+  String? navigateSelection(
+    NodeNavigationDirection direction, {
+    bool extendSelection = false,
+    double minPrimaryDistance = 20,
+  }) {
+    if (selectedNodeIds.isEmpty) return null;
+
+    final current = nodes[selectedNodeIds.last];
+    if (current == null) return null;
+
+    final nearest = findNearestNodeInDirection(
+      nodes.values,
+      current,
+      direction,
+      minPrimaryDistance: minPrimaryDistance,
+    );
+    if (nearest == null) return null;
+
+    selectNodesById(
+      {nearest.id},
+      holdSelection: extendSelection,
+    );
+    return nearest.id;
+  }
+
   /// This method is used to set the selection area for selecting nodes.
   ///
   /// See [selectNodesByArea] for more information.
@@ -1255,8 +1329,9 @@ class NodeEditorController with ChangeNotifier {
         selected.map((node) => node.offset.dy).reduce(max),
     };
 
+    final positions = <String, Offset>{};
     for (final node in selected) {
-      node.offset = switch (alignment) {
+      positions[node.id] = switch (alignment) {
         NodeAlignment.left ||
         NodeAlignment.centerHorizontal ||
         NodeAlignment.right =>
@@ -1266,9 +1341,8 @@ class NodeEditorController with ChangeNotifier {
         NodeAlignment.bottom =>
           Offset(node.offset.dx, value),
       };
-      unboundNodeOffsets[node.id] = node.offset;
     }
-    _emitNodeLayout(selected);
+    applyLayout(positions);
   }
 
   void distributeSelectedNodes(NodeDistributionAxis axis) {
@@ -1291,24 +1365,52 @@ class NodeEditorController with ChangeNotifier {
         : selected.last.offset.dy;
     final step = (last - first) / (selected.length - 1);
 
+    final positions = <String, Offset>{};
     for (var index = 1; index < selected.length - 1; index++) {
       final node = selected[index];
       final position = first + step * index;
-      node.offset = axis == NodeDistributionAxis.horizontal
+      positions[node.id] = axis == NodeDistributionAxis.horizontal
           ? Offset(position, node.offset.dy)
           : Offset(node.offset.dx, position);
-      unboundNodeOffsets[node.id] = node.offset;
     }
-    _emitNodeLayout(selected);
+    applyLayout(positions);
   }
 
-  void _emitNodeLayout(Iterable<NodeDataModel> nodes) {
+  /// Applies multiple node positions as one editor operation.
+  ///
+  /// A single [NodeLayoutEvent] is emitted and recorded in history, so
+  /// alignment, distribution, auto-layout, and host-provided layout commands
+  /// can be undone in one step.
+  void applyLayout(
+    Map<String, Offset> positions, {
+    String? eventId,
+    bool isHandled = false,
+  }) {
+    final previousPositions = <String, Offset>{};
+    final nextPositions = <String, Offset>{};
+    for (final entry in positions.entries) {
+      final node = nodes[entry.key];
+      if (node == null || node.offset == entry.value) continue;
+      previousPositions[entry.key] = node.offset;
+      nextPositions[entry.key] = entry.value;
+    }
+    if (nextPositions.isEmpty) return;
+
+    for (final entry in nextPositions.entries) {
+      final node = nodes[entry.key]!;
+      node.offset = entry.value;
+      unboundNodeOffsets[node.id] = entry.value;
+    }
+
     nodesDataDirty = true;
     linksDataDirty = true;
     eventBus.emit(
       NodeLayoutEvent(
-        nodes.map((node) => node.id).toSet(),
-        id: const Uuid().v4(),
+        nextPositions.keys.toSet(),
+        id: eventId ?? const Uuid().v4(),
+        isHandled: isHandled,
+        previousPositions: previousPositions,
+        nextPositions: nextPositions,
       ),
     );
   }

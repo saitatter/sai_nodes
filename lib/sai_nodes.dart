@@ -8,6 +8,14 @@ export 'package:sai_nodes/src/core/controller/core.dart'
         NodeEditorConfig,
         NodeAlignment,
         NodeDistributionAxis;
+export 'package:sai_nodes/src/core/controller/clipboard.dart'
+    show NodeEditorClipboardPayloadEncoder, NodeEditorClipboardPayloadDecoder;
+export 'package:sai_nodes/src/core/controller/content_revision.dart'
+    show isNodeEditorContentMutation;
+export 'package:sai_nodes/src/core/controller/navigation.dart'
+    show NodeNavigationDirection;
+export 'package:sai_nodes/src/core/controller/viewport_transform.dart'
+    show NodeEditorViewportTransform;
 export 'package:sai_nodes/src/core/controller/utils.dart' show NodeEditorUtils;
 export 'package:sai_nodes/src/core/events/events.dart'
     show

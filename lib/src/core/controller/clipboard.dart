@@ -14,6 +14,18 @@ import '../utils/rendering/renderbox.dart';
 import 'core.dart';
 import 'utils.dart';
 
+/// Encodes host-owned, JSON-compatible data alongside a node clipboard
+/// payload. The package still owns node and link serialization.
+typedef NodeEditorClipboardPayloadEncoder =
+    Map<String, dynamic>? Function(Iterable<NodeDataModel> nodes);
+
+/// Restores host-owned clipboard data after the package has created the pasted
+/// node instances with their new IDs.
+typedef NodeEditorClipboardPayloadDecoder = void Function(
+  Map<String, dynamic> data,
+  Iterable<NodeDataModel> pastedNodes,
+);
+
 /// A class that manages the clipboard operations of the node editor.
 ///
 /// The clipboard operations include copying, pasting, and cutting nodes.
@@ -28,7 +40,14 @@ class NodeEditorClipboardHelper {
   Map<String, NodeDataModel> get nodes => controller.nodes;
   Set<String> get selectedNodeIds => controller.selectedNodeIds;
 
-  NodeEditorClipboardHelper(this.controller);
+  NodeEditorClipboardHelper(
+    this.controller, {
+    this.payloadEncoder,
+    this.payloadDecoder,
+  });
+
+  final NodeEditorClipboardPayloadEncoder? payloadEncoder;
+  final NodeEditorClipboardPayloadDecoder? payloadDecoder;
 
   /// Copies the selected nodes to the clipboard.
   ///
@@ -83,6 +102,7 @@ class NodeEditorClipboardHelper {
       final jsonData = jsonEncode({
         'nodes': nodesJsonData,
         'encompassingRect': encompassingRectJsonData,
+        if (payloadEncoder != null) 'extension': payloadEncoder!(selectedNodes),
       });
 
       base64Data = base64Encode(utf8.encode(jsonData));
@@ -132,6 +152,7 @@ class NodeEditorClipboardHelper {
 
     late List<dynamic> nodesJson;
     late Rect encompassingRect;
+    Map<String, dynamic>? extensionData;
 
     try {
       final base64Data = utf8.decode(base64Decode(clipboardText));
@@ -141,6 +162,10 @@ class NodeEditorClipboardHelper {
       encompassingRect = JSONRect.fromJson(
         jsonDecode(jsonData['encompassingRect']),
       );
+      final extension = jsonData['extension'];
+      if (extension is Map) {
+        extensionData = Map<String, dynamic>.from(extension);
+      }
     } catch (e) {
       controller.onCallback?.call(
         CallbackType.error,
@@ -225,6 +250,10 @@ class NodeEditorClipboardHelper {
     }
     for (final link in linksToRestore.values) {
       controller.addLinkFromExisting(link, isHandled: true);
+    }
+
+    if (extensionData != null && payloadDecoder != null) {
+      payloadDecoder!(extensionData, nodesWithoutLinks);
     }
 
     eventBus.emit(
