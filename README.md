@@ -169,6 +169,16 @@ available as `link.endpoints.sourceNodeId`, `link.endpoints.sourcePortId`,
 labels are available as `link.label` and can be changed with
 `NodeEditorController.setLinkLabel`.
 
+The controller also exposes reusable editor primitives for application hosts:
+
+- `navigateSelection` moves to the nearest node in a direction.
+- `contentRevision` changes only for persisted graph mutations.
+- `screenToWorld`, `worldToScreen`, and `visibleWorldBounds` share the editor's
+  viewport math.
+- `applyLayout` applies several node positions as one undoable operation.
+- `clipboardPayloadEncoder` and `clipboardPayloadDecoder` allow a host to carry
+  JSON-compatible metadata alongside the package-owned node payload.
+
 ---
 
 ## 🧩 **Examples & Demo**

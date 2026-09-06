@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+- Added generic directional selection navigation.
+- Added viewport coordinate transforms for screen/world conversion and visible
+  bounds calculations.
+- Added a content revision notifier for host dirty-state tracking.
+- Added atomic, undoable multi-node layout operations.
+- Added an opt-in JSON extension payload for host-owned clipboard metadata.
+
 ## 0.2.0
 
 - Breaking: renamed link endpoint APIs to `LinkEndpoints endpoints` with
