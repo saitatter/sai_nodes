@@ -16,8 +16,9 @@ import 'utils.dart';
 
 /// Encodes host-owned, JSON-compatible data alongside a node clipboard
 /// payload. The package still owns node and link serialization.
-typedef NodeEditorClipboardPayloadEncoder =
-    Map<String, dynamic>? Function(Iterable<NodeDataModel> nodes);
+typedef NodeEditorClipboardPayloadEncoder = Map<String, dynamic>? Function(
+  Iterable<NodeDataModel> nodes,
+);
 
 /// Restores host-owned clipboard data after the package has created the pasted
 /// node instances with their new IDs.

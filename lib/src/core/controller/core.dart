@@ -161,6 +161,7 @@ class NodeEditorController with ChangeNotifier {
   final ValueNotifier<Offset> viewportOffsetNotifier =
       ValueNotifier(Offset.zero);
   final ValueNotifier<double> viewportZoomNotifier = ValueNotifier(1.0);
+
   /// Increases whenever an event changes persisted node-editor content.
   final ValueNotifier<int> contentRevisionNotifier = ValueNotifier(0);
 
