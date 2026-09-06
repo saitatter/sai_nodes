@@ -73,6 +73,73 @@ void main() {
     expect(controller.contentRevisionNotifier.value, initial + 2);
   });
 
+  test('content mutation policy covers persisted and transient event types',
+      () {
+    final link = LinkDataModel(
+      id: 'link',
+      endpoints: (
+        sourceNodeId: 'source',
+        sourcePortId: 'out',
+        targetNodeId: 'target',
+        targetPortId: 'in',
+      ),
+      state: LinkState(),
+    );
+
+    for (final event in <NodeEditorEvent>[
+      AddLinkEvent(link, id: 'add-link'),
+      RemoveLinkEvent(link, id: 'remove-link'),
+      const NodeResizeEvent(
+        'node',
+        oldSize: null,
+        newSize: Size(100, 100),
+        id: 'resize',
+      ),
+      const NodeRenameEvent(
+        'node',
+        oldTitle: null,
+        newTitle: 'Renamed',
+        id: 'rename',
+      ),
+      const LinkLabelChangeEvent(
+        'link',
+        oldLabel: null,
+        newLabel: 'Label',
+        id: 'label',
+      ),
+      const DragSelectionEvent({'node'}, Offset(10, 10), id: 'drag'),
+      const NodeLayoutEvent({'node'}, id: 'layout'),
+      const PasteSelectionEvent(Offset.zero, 'payload', id: 'paste'),
+      const CutSelectionEvent('payload', id: 'cut'),
+      const NodeFieldEvent(
+        'node',
+        'value',
+        FieldEventType.submit,
+        id: 'submit',
+      ),
+    ]) {
+      expect(isNodeEditorContentMutation(event), isTrue, reason: '$event');
+    }
+
+    for (final event in <NodeEditorEvent>[
+      const CopySelectionEvent('payload', id: 'copy'),
+      const NodeFieldEvent(
+        'node',
+        'value',
+        FieldEventType.change,
+        id: 'change',
+      ),
+      const ViewportZoomEvent(1.2, id: 'zoom'),
+      const NodeSelectionEvent(
+        {'node'},
+        type: SelectionEventType.select,
+        id: 'selection',
+      ),
+    ]) {
+      expect(isNodeEditorContentMutation(event), isFalse, reason: '$event');
+    }
+  });
+
   test('layout is one undoable operation', () async {
     final first = controller.addNode('node', offset: const Offset(0, 10));
     final second = controller.addNode('node', offset: const Offset(100, 70));

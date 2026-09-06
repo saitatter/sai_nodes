@@ -171,15 +171,13 @@ final class NodeLayoutEvent extends NodeEditorEvent {
   final Map<String, Offset> previousPositions;
   final Map<String, Offset> nextPositions;
 
-  NodeLayoutEvent(
+  const NodeLayoutEvent(
     this.nodeIds, {
     required super.id,
     super.isHandled,
-    Map<String, Offset>? previousPositions,
-    Map<String, Offset>? nextPositions,
-  }) : previousPositions = Map.unmodifiable(previousPositions ?? const {}),
-       nextPositions = Map.unmodifiable(nextPositions ?? const {}),
-       super(isUndoable: true);
+    this.previousPositions = const {},
+    this.nextPositions = const {},
+  }) : super(isUndoable: true);
 
   @override
   Map<String, dynamic> toJson(dataHandlers) => {
