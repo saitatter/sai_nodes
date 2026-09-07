@@ -520,12 +520,16 @@ class NodeEditorController with ChangeNotifier {
   /// See [SpatialHashGrid] and [selectNodesByArea].
   ///
   /// Emits an [AddNodeEvent] event.
-  NodeDataModel addNode(String name, {Offset offset = Offset.zero}) {
+  NodeDataModel addNode(
+    String name, {
+    Offset offset = Offset.zero,
+    bool? snapToGrid,
+  }) {
     if (!nodePrototypes.containsKey(name)) {
       throw Exception('Node prototype $name does not exist.');
     }
 
-    if (config.enableSnapToGrid) {
+    if (snapToGrid ?? config.enableSnapToGrid) {
       offset = Offset(
         (offset.dx / config.snapToGridSize).round() * config.snapToGridSize,
         (offset.dy / config.snapToGridSize).round() * config.snapToGridSize,

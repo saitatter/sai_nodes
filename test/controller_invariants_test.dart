@@ -361,6 +361,32 @@ void main() {
     expect(controller.selectedNodeIds, isEmpty);
   });
 
+  test('loading can preserve an exact node offset without disabling snap', () {
+    final controller = NodeEditorController(
+      config: const NodeEditorConfig(
+        autoBuildGraph: false,
+        autoRunGraph: false,
+        enableSnapToGrid: true,
+        snapToGridSize: 42,
+      ),
+    );
+    addTearDown(controller.dispose);
+    controller.registerNodePrototype(
+      _prototype(id: 'node', input: false, output: false),
+    );
+
+    final snapped = controller.addNode('node', offset: const Offset(10, 10));
+    final exact = controller.addNode(
+      'node',
+      offset: const Offset(10, 10),
+      snapToGrid: false,
+    );
+
+    expect(snapped.offset, const Offset(0, 0));
+    expect(exact.offset, const Offset(10, 10));
+    expect(controller.config.enableSnapToGrid, isTrue);
+  });
+
   test('change notifier follows controller events', () async {
     var notifications = 0;
     controller.addListener(() => notifications++);
