@@ -57,6 +57,22 @@ void main() {
     expect(controller.selectedNodeIds, {near.id});
   });
 
+  test('navigation compares node centers, including resized nodes', () {
+    final current = controller.addNode('node');
+    controller.resizeNode(current.id, const Size(400, 100));
+    final left = controller.addNode('node', offset: const Offset(100, 0));
+    controller.resizeNode(left.id, const Size(100, 100));
+    final right = controller.addNode('node', offset: const Offset(240, 0));
+    controller.resizeNode(right.id, const Size(100, 100));
+    controller.selectNodesById({current.id});
+    expect(
+      controller.navigateSelection(NodeNavigationDirection.right),
+      right.id,
+    );
+    controller.selectNodesById({current.id});
+    expect(controller.navigateSelection(NodeNavigationDirection.left), left.id);
+  });
+
   test('content revision ignores selection and tracks persisted events',
       () async {
     final initial = controller.contentRevisionNotifier.value;

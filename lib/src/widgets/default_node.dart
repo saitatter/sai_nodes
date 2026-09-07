@@ -53,6 +53,7 @@ class DefaultNodeWidget extends StatefulWidget {
 class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
   // Interaction state for linking ports.
   bool _isLinking = false;
+  bool _resizePointer = false;
 
   // Timer for auto-scrolling when dragging near the edge.
   Timer? _edgeTimer;
@@ -367,6 +368,7 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
         : ImprovedListener(
             behavior: HitTestBehavior.translucent,
             onPointerPressed: (event) async {
+              if (_resizePointer) return;
               _isLinking = false;
               _tempLink = null;
 
@@ -393,6 +395,7 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
               }
             },
             onPointerMoved: (event) async {
+              if (_resizePointer) return;
               if (_isLinking) {
                 _onTmpLinkUpdate(event.position);
               } else if (event.buttons == kPrimaryMouseButton) {
@@ -401,6 +404,10 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
               }
             },
             onPointerReleased: (event) async {
+              if (_resizePointer) {
+                _resizePointer = false;
+                return;
+              }
               final pendingPosition = _pendingSecondaryMenuPosition;
               if (pendingPosition != null) {
                 final pendingPort = _pendingSecondaryPort;
@@ -705,12 +712,16 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
           Positioned(
             right: 4,
             bottom: 4,
-            child: widget.resizeBuilder!(
-              context,
-              widget.node,
-              (size) => widget.controller.resizeNode(
-                widget.node.id,
-                size,
+            child: Listener(
+              onPointerDown: (_) => _resizePointer = true,
+              onPointerCancel: (_) => _resizePointer = false,
+              child: widget.resizeBuilder!(
+                context,
+                widget.node,
+                (size) => widget.controller.resizeNode(
+                  widget.node.id,
+                  size,
+                ),
               ),
             ),
           ),
@@ -719,12 +730,15 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
           Positioned(
             right: 2,
             bottom: 2,
-            child: _DefaultNodeResizeHandle(
-              node: widget.node,
-              zoom: viewportZoom,
-              onResize: (size) => widget.controller.resizeNode(
-                widget.node.id,
-                size,
+            child: Listener(
+              onPointerDown: (_) => _resizePointer = true,
+              onPointerCancel: (_) => _resizePointer = false,
+              child: _DefaultNodeResizeHandle(
+                node: widget.node,
+                onResize: (size) => widget.controller.resizeNode(
+                  widget.node.id,
+                  size,
+                ),
               ),
             ),
           ),
@@ -808,12 +822,10 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
 class _DefaultNodeResizeHandle extends StatefulWidget {
   const _DefaultNodeResizeHandle({
     required this.node,
-    required this.zoom,
     required this.onResize,
   });
 
   final NodeDataModel node;
-  final double zoom;
   final void Function(Size size) onResize;
 
   @override
@@ -836,8 +848,8 @@ class _DefaultNodeResizeHandleState extends State<_DefaultNodeResizeHandle> {
     final size = _size;
     if (size == null) return;
     _size = Size(
-      size.width + details.delta.dx / widget.zoom,
-      size.height + details.delta.dy / widget.zoom,
+      size.width + details.delta.dx,
+      size.height + details.delta.dy,
     );
     widget.onResize(_size!);
   }

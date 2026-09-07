@@ -1,4 +1,12 @@
 import '../models/data.dart';
+import 'package:flutter/rendering.dart';
+
+Offset _center(NodeDataModel node) {
+  final box = node.key.currentContext?.findRenderObject();
+  final size =
+      box is RenderBox && box.hasSize ? box.size : node.customSize ?? Size.zero;
+  return node.offset + size.center(Offset.zero);
+}
 
 /// The geometric direction used by keyboard or accessibility navigation.
 enum NodeNavigationDirection { left, right, up, down }
@@ -22,7 +30,7 @@ NodeDataModel? findNearestNodeInDirection(
   for (final candidate in nodes) {
     if (candidate.id == current.id) continue;
 
-    final delta = candidate.offset - current.offset;
+    final delta = _center(candidate) - _center(current);
     final inDirection = switch (direction) {
       NodeNavigationDirection.right => delta.dx > minPrimaryDistance,
       NodeNavigationDirection.left => delta.dx < -minPrimaryDistance,

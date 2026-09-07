@@ -1,4 +1,5 @@
 import 'package:sai_nodes/src/core/controller/core.dart';
+import 'package:sai_nodes/src/core/controller/navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -26,9 +27,41 @@ class NodeEditorShortcutsWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMacOS = Theme.of(context).platform == TargetPlatform.macOS;
+    void navigate(LogicalKeyboardKey key, bool extend) {
+      if (onMoveSelection != null) {
+        onMoveSelection!(key, extendSelection: extend);
+        return;
+      }
+      controller.navigateSelection(
+        switch (key) {
+          LogicalKeyboardKey.arrowLeft => NodeNavigationDirection.left,
+          LogicalKeyboardKey.arrowRight => NodeNavigationDirection.right,
+          LogicalKeyboardKey.arrowUp => NodeNavigationDirection.up,
+          _ => NodeNavigationDirection.down,
+        },
+        extendSelection: extend,
+      );
+    }
 
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyF):
+            controller.focusAllNodes,
+        SingleActivator(
+          LogicalKeyboardKey.equal,
+          control: !isMacOS,
+          meta: isMacOS,
+        ): () => controller.setViewportZoom(0.1),
+        SingleActivator(
+          LogicalKeyboardKey.minus,
+          control: !isMacOS,
+          meta: isMacOS,
+        ): () => controller.setViewportZoom(-0.1),
+        SingleActivator(
+          LogicalKeyboardKey.digit0,
+          control: !isMacOS,
+          meta: isMacOS,
+        ): controller.resetViewport,
         SingleActivator(
           LogicalKeyboardKey.keyA,
           control: !isMacOS,
@@ -74,8 +107,7 @@ class NodeEditorShortcutsWidget extends StatelessWidget {
           LogicalKeyboardKey.arrowUp,
           LogicalKeyboardKey.arrowDown,
         ])
-          SingleActivator(key): () =>
-              onMoveSelection?.call(key, extendSelection: false),
+          SingleActivator(key): () => navigate(key, false),
         for (final key in const [
           LogicalKeyboardKey.arrowLeft,
           LogicalKeyboardKey.arrowRight,
@@ -85,7 +117,7 @@ class NodeEditorShortcutsWidget extends StatelessWidget {
           SingleActivator(
             key,
             shift: true,
-          ): () => onMoveSelection?.call(key, extendSelection: true),
+          ): () => navigate(key, true),
         SingleActivator(
           LogicalKeyboardKey.keyS,
           control: !isMacOS,

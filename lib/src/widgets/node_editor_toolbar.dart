@@ -63,6 +63,15 @@ class NodeEditorToolbar extends StatelessWidget {
                     icon: Icons.remove,
                     onPressed: () => controller.setViewportZoom(-0.1),
                   ),
+                  SizedBox(
+                    width: 48,
+                    child: Text(
+                      '${(controller.viewportZoom * 100).round()}%',
+                      textAlign: TextAlign.center,
+                      semanticsLabel:
+                          'Zoom ${(controller.viewportZoom * 100).round()} percent',
+                    ),
+                  ),
                   _button(
                     tooltip: 'Zoom in',
                     icon: Icons.add,

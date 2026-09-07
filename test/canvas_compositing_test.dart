@@ -7,6 +7,65 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sai_nodes/sai_nodes.dart';
 
 void main() {
+  for (final zoom in [0.65, 1.0, 1.4]) {
+    testWidgets('resize follows cursor without moving node at zoom $zoom',
+        (tester) async {
+      final controller = NodeEditorController(
+        config: const NodeEditorConfig(
+          enableNodeResize: true,
+          enableSnapToGrid: false,
+          autoBuildGraph: false,
+          autoRunGraph: false,
+        ),
+      );
+      addTearDown(controller.dispose);
+      controller.registerNodePrototype(
+        NodePrototype(
+          idName: 'node',
+          displayName: (_) => 'Node',
+          description: (_) => '',
+          onExecute: (ports, fields, state, forward, put) async {},
+        ),
+      );
+      final node = controller.addNode('node');
+      controller.resizeNode(node.id, const Size(180, 120));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.windows),
+          home: Padding(
+            padding: const EdgeInsets.fromLTRB(100, 80, 20, 20),
+            child: NodeEditorWidget(
+              controller: controller,
+              shaderAssetKey: 'shaders/grid.frag',
+              overlay: () => [],
+              headerBuilder: (context, node, style, collapse) =>
+                  const SizedBox(width: 100, height: 40),
+            ),
+          ),
+        ),
+      );
+      controller.setViewportZoom(zoom, absolute: true, animate: false);
+      await tester.pumpAndSettle();
+      final box = node.key.currentContext!.findRenderObject()! as RenderBox;
+      final origin = node.offset;
+      final gesture = await tester.startGesture(
+        box.localToGlobal(const Offset(170, 110)),
+        kind: PointerDeviceKind.mouse,
+      );
+      // First movement wins the pan gesture arena; measure subsequent motion.
+      await gesture.moveBy(const Offset(25, 25));
+      await tester.pump();
+      final before = node.customSize!;
+      await gesture.moveBy(Offset(26 * zoom, 13 * zoom));
+      await tester.pump();
+      expect(node.customSize!.width - before.width, closeTo(26, 0.01));
+      expect(node.customSize!.height - before.height, closeTo(13, 0.01));
+      expect(node.offset, origin, reason: 'resize must not also drag the node');
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+  }
+
   testWidgets(
       'selection pixels stay at pointer coordinates across child layers',
       (tester) async {
@@ -60,7 +119,7 @@ void main() {
     final editorBox =
         controller.editorKey.currentContext!.findRenderObject()! as RenderBox;
     for (final zoom in [1.0, 0.65, 1.4]) {
-      controller.setViewportZoom(zoom, animate: false);
+      controller.setViewportZoom(zoom, absolute: true, animate: false);
       controller.setViewportOffset(
         const Offset(45, -25),
         absolute: true,
