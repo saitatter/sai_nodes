@@ -159,4 +159,65 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     }
   });
+
+  testWidgets('node context menus remain open after a secondary click',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    try {
+      final controller = NodeEditorController(
+        config: const NodeEditorConfig(
+          autoBuildGraph: false,
+          autoRunGraph: false,
+          enableSnapToGrid: false,
+        ),
+      );
+      addTearDown(controller.dispose);
+      controller.registerNodePrototype(_prototype('node'));
+      final node = controller.addNode('node');
+      node.customSize = const Size(180, 100);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 600,
+              child: NodeEditorWidget(
+                controller: controller,
+                shaderAssetKey: 'shaders/grid.frag',
+                overlay: () => const <OverlayData>[],
+                nodeMenuBuilder: (context, node) => [
+                  NodeEditorMenuAction(
+                    label: 'Node menu action',
+                    onSelected: () {},
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final editorBox =
+          controller.editorKey.currentContext!.findRenderObject()! as RenderBox;
+      final nodeBox = node.key.currentContext!.findRenderObject()! as RenderBox;
+      final nodeCenter = editorBox.localToGlobal(
+        controller.worldToScreen(
+          node.offset + Offset(nodeBox.size.width / 2, nodeBox.size.height / 2),
+          editorBox.size,
+        ),
+      );
+
+      await tester.tapAt(nodeCenter, buttons: kSecondaryMouseButton);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(find.text('Node menu action'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
 }

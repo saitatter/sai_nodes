@@ -64,6 +64,12 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
   // Temporary link locator used during linking.
   _PortLocator? _tempLink;
 
+  // Desktop context menus are opened on pointer release. Opening the custom
+  // node menu on pointer down lets the matching pointer up land on its
+  // dismissible barrier and close it immediately.
+  Offset? _pendingSecondaryMenuPosition;
+  _PortLocator? _pendingSecondaryPort;
+
   late Color fakeTransparentColor;
 
   late List<PortDataModel> inPorts;
@@ -363,23 +369,16 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
               _tempLink = null;
 
               final locator = _isNearPort(event.position);
-              if (event.buttons == kSecondaryMouseButton) {
+              if (event.buttons & kSecondaryMouseButton != 0) {
                 if (!widget.node.state.isSelected) {
                   widget.controller.selectNodesById({widget.node.id});
                 }
 
-                if (locator != null && !widget.node.state.isCollapsed) {
-                  createAndShowContextMenu(
-                    context,
-                    entries: _portContextMenuEntries(
-                      event.position,
-                      locator: locator,
-                    ),
-                    position: event.position,
-                  );
-                } else {
-                  _showNodeContextMenu(event.position);
-                }
+                _pendingSecondaryMenuPosition = event.position;
+                _pendingSecondaryPort = locator != null &&
+                        !widget.node.state.isCollapsed
+                    ? locator
+                    : null;
               } else if (event.buttons == kPrimaryMouseButton) {
                 if (locator != null && !_isLinking && _tempLink == null) {
                   _onTmpLinkStart(locator);
@@ -400,7 +399,24 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
               }
             },
             onPointerReleased: (event) async {
-              if (_isLinking) {
+              final pendingPosition = _pendingSecondaryMenuPosition;
+              if (pendingPosition != null) {
+                final pendingPort = _pendingSecondaryPort;
+                _pendingSecondaryMenuPosition = null;
+                _pendingSecondaryPort = null;
+                if (pendingPort != null) {
+                  createAndShowContextMenu(
+                    context,
+                    entries: _portContextMenuEntries(
+                      event.position,
+                      locator: pendingPort,
+                    ),
+                    position: event.position,
+                  );
+                } else {
+                  _showNodeContextMenu(event.position);
+                }
+              } else if (_isLinking) {
                 final locator = _isNearPort(event.position);
                 if (locator != null) {
                   _onTmpLinkEnd(locator);
@@ -415,6 +431,11 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
               } else {
                 _resetEdgeTimer();
               }
+            },
+            onPointerCanceled: (_) {
+              _pendingSecondaryMenuPosition = null;
+              _pendingSecondaryPort = null;
+              _resetEdgeTimer();
             },
             child: child,
           );
