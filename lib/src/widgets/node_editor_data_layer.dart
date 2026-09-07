@@ -658,8 +658,11 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
     }
 
     Widget controlsWrapper(Widget child) {
-      return defaultTargetPlatform == TargetPlatform.android ||
-              defaultTargetPlatform == TargetPlatform.iOS
+      final platform = Theme.of(context).platform;
+      final isMobilePlatform =
+          platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+
+      return isMobilePlatform
           ? GestureDetector(
               onTap: () => widget.controller.clearSelection(),
               onLongPressStart: (LongPressStartDetails details) {
