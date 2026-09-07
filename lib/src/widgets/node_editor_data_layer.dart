@@ -500,7 +500,7 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
       );
 
       return compatiblePrototypes.map((entry) {
-        return MenuItem(
+        return MenuItem<dynamic>(
           label: Text(entry.value.displayName(context)),
           icon: const Icon(Icons.widgets),
           onSelected: (_) {
@@ -545,7 +545,7 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
 
       return [
         MenuHeader(text: strings.editorMenuLabel),
-        MenuItem(
+        MenuItem<dynamic>(
           label: Text(strings.centerViewAction),
           icon: const Icon(Icons.center_focus_strong),
           onSelected: (_) => widget.controller.setViewportOffset(
@@ -553,52 +553,52 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
             absolute: true,
           ),
         ),
-        MenuItem(
+        MenuItem<dynamic>(
           label: Text(strings.resetZoomAction),
           icon: const Icon(Icons.zoom_in),
           onSelected: (_) =>
               widget.controller.setViewportZoom(1.0, absolute: true),
         ),
         const MenuDivider(),
-        MenuItem.submenu(
+        MenuItem<dynamic>.submenu(
           label: Text(strings.createNodeAction),
           icon: const Icon(Icons.add),
           items: createSubmenuEntries(position),
         ),
-        MenuItem(
+        MenuItem<dynamic>(
           label: Text(strings.pasteSelectionAction),
           icon: const Icon(Icons.paste),
           onSelected: (_) => widget.controller.clipboard
               .pasteSelection(position: worldPosition),
         ),
         const MenuDivider(),
-        MenuItem.submenu(
+        MenuItem<dynamic>.submenu(
           label: Text(strings.projectLabel),
           icon: const Icon(Icons.folder),
           items: [
-            MenuItem(
+            MenuItem<dynamic>(
               label: Text(strings.undoAction),
               icon: const Icon(Icons.undo),
               onSelected: (_) => widget.controller.history.undo(),
             ),
-            MenuItem(
+            MenuItem<dynamic>(
               label: Text(strings.redoAction),
               icon: const Icon(Icons.redo),
               onSelected: (_) => widget.controller.history.redo(),
             ),
-            MenuItem(
+            MenuItem<dynamic>(
               label: Text(strings.saveProjectAction),
               icon: const Icon(Icons.save),
               onSelected: (_) =>
                   widget.controller.project.save(context: context),
             ),
-            MenuItem(
+            MenuItem<dynamic>(
               label: Text(strings.openProjectAction),
               icon: const Icon(Icons.folder_open),
               onSelected: (_) =>
                   widget.controller.project.load(context: context),
             ),
-            MenuItem(
+            MenuItem<dynamic>(
               label: Text(strings.newProjectAction),
               icon: const Icon(Icons.new_label),
               onSelected: (_) =>
@@ -644,7 +644,7 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
 
       return [
         MenuHeader(text: strings.portMenuLabel),
-        MenuItem(
+        MenuItem<dynamic>(
           label: Text(strings.cutLinksAction),
           icon: const Icon(Icons.remove_circle),
           onSelected: (_) {

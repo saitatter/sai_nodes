@@ -6,9 +6,9 @@ bool isContextMenuVisible = false;
 
 void createAndShowContextMenu(
   BuildContext context, {
-  required List<ContextMenuEntry> entries,
+  required List<ContextMenuEntry<dynamic>> entries,
   required Offset position,
-  ValueChanged<dynamic>? onDismiss,
+  ValueChanged<Object?>? onDismiss,
 }) async {
   if (isContextMenuVisible) return;
 

@@ -425,7 +425,7 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
 
     return [
       MenuHeader(text: strings.nodeMenuLabel),
-      MenuItem(
+      MenuItem<dynamic>(
         label: Text(strings.seeNodeDescriptionAction),
         icon: const Icon(Icons.info),
         onSelected: (_) {
@@ -447,7 +447,7 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
         },
       ),
       const MenuDivider(),
-      MenuItem(
+      MenuItem<dynamic>(
         label: Text(
           widget.node.state.isCollapsed
               ? strings.expandNodeAction
@@ -462,7 +462,7 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
             .toggleCollapseSelectedNodes(!widget.node.state.isCollapsed),
       ),
       const MenuDivider(),
-      MenuItem(
+      MenuItem<dynamic>(
         label: Text(strings.deleteNodeAction),
         icon: const Icon(Icons.delete),
         onSelected: (_) {
@@ -474,13 +474,13 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
           }
         },
       ),
-      MenuItem(
+      MenuItem<dynamic>(
         label: Text(strings.cutSelectionAction),
         icon: const Icon(Icons.content_cut),
         onSelected: (_) =>
             widget.controller.clipboard.cutSelection(context: context),
       ),
-      MenuItem(
+      MenuItem<dynamic>(
         label: Text(strings.copySelectionAction),
         icon: const Icon(Icons.copy),
         onSelected: (_) =>
@@ -517,7 +517,7 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
 
     return [
       MenuHeader(text: strings.portMenuLabel),
-      MenuItem(
+      MenuItem<dynamic>(
         label: Text(strings.cutLinksAction),
         icon: const Icon(Icons.remove_circle),
         onSelected: (_) {
@@ -556,7 +556,7 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
     );
 
     return compatiblePrototypes.map((entry) {
-      return MenuItem(
+      return MenuItem<dynamic>(
         label: Text(entry.value.displayName(context)),
         icon: const Icon(Icons.widgets),
         onSelected: (_) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sai_nodes/sai_nodes.dart';
 
@@ -15,7 +16,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
-      'node editor supports selection, primary-button panning, and a clean canvas',
+      'node editor supports selection, node dragging, middle-button panning, and a clean canvas',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     try {
@@ -79,6 +80,16 @@ void main() {
       await tester.tapAt(const Offset(400, 300));
       await tester.pump();
       expect(controller.selectedNodeIds, isEmpty);
+
+      await tester.tapAt(
+        const Offset(650, 450),
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pump();
+      expect(find.text('EDITOR MENU'), findsOneWidget);
+      expect(find.text('Center View'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
 
       await tester.dragFrom(
         const Offset(650, 450),
