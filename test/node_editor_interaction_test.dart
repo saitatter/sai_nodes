@@ -220,4 +220,68 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     }
   });
+
+  testWidgets('area selection follows the pointer in a padded editor',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    try {
+      final controller = NodeEditorController(
+        config: const NodeEditorConfig(
+          autoBuildGraph: false,
+          autoRunGraph: false,
+          enableSnapToGrid: false,
+        ),
+      );
+      addTearDown(controller.dispose);
+      controller.registerNodePrototype(_prototype('node'));
+      controller.addNode('node');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 48, top: 32),
+                child: SizedBox(
+                  width: 720,
+                  height: 500,
+                  child: NodeEditorWidget(
+                    controller: controller,
+                    shaderAssetKey: 'shaders/grid.frag',
+                    overlay: () => const <OverlayData>[],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final editorBox =
+          controller.editorKey.currentContext!.findRenderObject()! as RenderBox;
+      const startLocal = Offset(24, 24);
+      const endLocal = Offset(180, 148);
+      final start = editorBox.localToGlobal(startLocal);
+      final end = editorBox.localToGlobal(endLocal);
+      final gesture = await tester.startGesture(
+        start,
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveTo(end);
+      await tester.pump();
+
+      final expected = Rect.fromPoints(
+        controller.screenToWorld(startLocal, editorBox.size),
+        controller.screenToWorld(endLocal, editorBox.size),
+      );
+      expect(controller.highlightArea, expected);
+
+      await gesture.up();
+      await tester.pump();
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
 }
