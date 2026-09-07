@@ -16,6 +16,8 @@ export 'package:sai_nodes/src/core/controller/navigation.dart'
     show NodeNavigationDirection;
 export 'package:sai_nodes/src/core/controller/viewport_transform.dart'
     show NodeEditorViewportTransform;
+export 'package:sai_nodes/src/core/controller/minimap_transform.dart'
+    show NodeEditorMinimapTransform;
 export 'package:sai_nodes/src/core/controller/utils.dart' show NodeEditorUtils;
 export 'package:sai_nodes/src/core/events/events.dart'
     show
