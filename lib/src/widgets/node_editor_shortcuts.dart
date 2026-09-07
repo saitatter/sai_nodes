@@ -1,5 +1,4 @@
 import 'package:sai_nodes/src/core/controller/core.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -26,7 +25,7 @@ class NodeEditorShortcutsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMacOS = defaultTargetPlatform == TargetPlatform.macOS;
+    final isMacOS = Theme.of(context).platform == TargetPlatform.macOS;
 
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
@@ -99,8 +98,8 @@ class NodeEditorShortcutsWidget extends StatelessWidget {
         ): () => controller.project.load(context: context),
         SingleActivator(
           LogicalKeyboardKey.keyN,
-          control: defaultTargetPlatform != TargetPlatform.macOS,
-          meta: defaultTargetPlatform == TargetPlatform.macOS,
+          control: !isMacOS,
+          meta: isMacOS,
           shift: true,
         ): () => controller.project.create(context: context),
         SingleActivator(

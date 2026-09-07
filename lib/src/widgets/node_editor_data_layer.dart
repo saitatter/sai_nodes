@@ -69,6 +69,7 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
   NodeEditorStyle get style => widget.controller.style;
   NodeEditorConfig get config => widget.controller.config;
   GlobalKey get editorKey => widget.controller.editorKey;
+  TargetPlatform get platform => Theme.of(context).platform;
 
   // Interaction state
   bool _isDragging = false;
@@ -396,8 +397,9 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
     if (!widget.controller.config.enableZoom) return;
 
     final double sensitivity = widget.controller.config.zoomSensitivity;
-    final bool isMobile = defaultTargetPlatform == TargetPlatform.android ||
-        defaultTargetPlatform == TargetPlatform.iOS;
+    final currentPlatform = platform;
+    final bool isMobile = currentPlatform == TargetPlatform.android ||
+        currentPlatform == TargetPlatform.iOS;
 
     late double targetZoom;
 
@@ -405,7 +407,7 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
     if (isMobile) {
       const platformWeight = 0.1;
 
-      final double delta = defaultTargetPlatform == TargetPlatform.android
+      final double delta = currentPlatform == TargetPlatform.android
           ? -amount * platformWeight * sensitivity // Flip for Android
           : amount * platformWeight * sensitivity; // Keep as-is for iOS
 
@@ -417,7 +419,7 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
       late double delta;
 
       if (isTrackpadInput) {
-        final platformWeight = switch (defaultTargetPlatform) {
+        final platformWeight = switch (currentPlatform) {
           TargetPlatform.macOS => 1.0,
           TargetPlatform.windows => 10.0,
           TargetPlatform.linux => 5.0,
