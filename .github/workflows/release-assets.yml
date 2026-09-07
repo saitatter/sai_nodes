@@ -3,23 +3,29 @@ name: Attach package archive to GitHub Release
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to package
+        required: true
+        type: string
 
 permissions:
   contents: write
 
 jobs:
   package:
-    if: startsWith(github.event.release.tag_name, 'v')
+    if: startsWith(github.event.release.tag_name || inputs.tag, 'v')
     runs-on: ubuntu-latest
     steps:
       - name: Check out release tag
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
 
       - name: Verify release version
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           set -euo pipefail
           expected_version="${RELEASE_TAG#v}"
@@ -32,7 +38,7 @@ jobs:
 
       - name: Create source archives
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           set -euo pipefail
           version="${RELEASE_TAG#v}"
@@ -43,5 +49,5 @@ jobs:
       - name: Upload archives to release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: gh release upload "$RELEASE_TAG" dist/* --clobber
