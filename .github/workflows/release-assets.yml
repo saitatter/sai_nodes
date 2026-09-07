@@ -23,7 +23,7 @@ jobs:
         run: |
           set -euo pipefail
           expected_version="${RELEASE_TAG#v}"
-          package_version="$(awk '/^version:/ { gsub(/["'"']/, "", $2); print $2; exit }' pubspec.yaml)"
+          package_version="$(sed -n -E 's/^version:[[:space:]]*//p' pubspec.yaml | head -n 1 | tr -d '[:space:]"')"
 
           if [ "$expected_version" != "$package_version" ]; then
             echo "Release tag $RELEASE_TAG does not match pubspec.yaml version $package_version."
