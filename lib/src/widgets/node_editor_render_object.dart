@@ -499,7 +499,20 @@ class NodeEditorRenderBox extends RenderBox
       _transformMatrixDirty = true;
     }
 
-    final viewport = _prepareCanvas(context.canvas, size);
+    // Canvas state does not survive paintChild when a child introduces a
+    // composited layer. Keep the viewport transform and clip in the layer
+    // tree so nodes, ports, and selection share the same coordinates.
+    context.pushClipRect(true, offset, Offset.zero & size, (context, offset) {
+      final transform = Matrix4.translationValues(offset.dx, offset.dy, 0)
+        ..multiply(_getTransformMatrix());
+      context.pushTransform(true, Offset.zero, transform, (context, offset) {
+        _paintWorld(context);
+      });
+    });
+  }
+
+  void _paintWorld(PaintingContext context) {
+    final viewport = _calculateViewport();
 
     // Performing the visibility update here ensures all layout operations are done.
 
@@ -540,18 +553,12 @@ class NodeEditorRenderBox extends RenderBox
     return _transformMatrix!;
   }
 
-  Rect _prepareCanvas(Canvas canvas, Size size) {
-    canvas.transform(_getTransformMatrix().storage);
-
-    final viewport = _calculateViewport();
-
-    canvas.clipRect(
-      viewport,
-      clipOp: ui.ClipOp.intersect,
-      doAntiAlias: false,
-    );
-
-    return viewport;
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    final parentData = child.parentData! as _ParentData;
+    transform
+      ..multiply(_getTransformMatrix())
+      ..translateByDouble(parentData.offset.dx, parentData.offset.dy, 0, 1);
   }
 
   ////////////////////////////////////////////////////////////////////
@@ -955,11 +962,18 @@ class NodeEditorRenderBox extends RenderBox
 
   @override
   bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
-    final Offset centeredPosition =
-        position - Offset(size.width / 2, size.height / 2);
-    final Offset scaledPosition = centeredPosition.scale(1 / _zoom, 1 / _zoom);
-    final Offset transformedPosition = scaledPosition - _offset;
+    return result.addWithPaintTransform(
+      transform: _getTransformMatrix(),
+      position: position,
+      hitTest: (result, worldPosition) =>
+          _hitTestWorldChildren(result, worldPosition),
+    );
+  }
 
+  bool _hitTestWorldChildren(
+    BoxHitTestResult result,
+    Offset transformedPosition,
+  ) {
     for (final nodeId in _controller.nodesSpatialHashGrid.queryCoords(
       transformedPosition,
     )) {
@@ -1366,5 +1380,5 @@ class NodeEditorRenderBox extends RenderBox
   bool get isRepaintBoundary => true;
 
   @override
-  bool get alwaysNeedsCompositing => false;
+  bool get alwaysNeedsCompositing => true;
 }

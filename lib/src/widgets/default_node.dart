@@ -782,7 +782,6 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
 
     // Cache frequently used values
     final renderBoxSize = renderBox.size;
-    final nodeOffset = nodeBox.localToGlobal(Offset.zero);
     final isCollapsed = widget.node.state.isCollapsed;
     final collapsedYAdjustment = isCollapsed ? -renderBoxSize.height + 8 : 0;
 
@@ -792,8 +791,8 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
       if (portBox == null) continue;
 
       // Calculate relative offset with collapsed adjustment
-      final portOffset = portBox.localToGlobal(Offset.zero);
-      final relativeY = portOffset.dy - nodeOffset.dy + collapsedYAdjustment;
+      final portOffset = portBox.localToGlobal(Offset.zero, ancestor: nodeBox);
+      final relativeY = portOffset.dy + collapsedYAdjustment;
 
       // Set port offset based on direction
       port.offset = Offset(
