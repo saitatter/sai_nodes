@@ -1,6 +1,4 @@
 import 'package:sai_nodes/src/core/models/overlay.dart';
-import 'package:sai_nodes/src/widgets/debug_info.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/controller/core.dart';
@@ -12,6 +10,7 @@ class NodeEditorWidget extends StatelessWidget {
   final NodeEditorController controller;
   final bool expandToParent;
   final Size? fixedSize;
+  final String shaderAssetKey;
   final List<OverlayData> Function() overlay;
   final NodeHeaderBuilder? headerBuilder;
   final NodeFieldBuilder? fieldBuilder;
@@ -28,6 +27,7 @@ class NodeEditorWidget extends StatelessWidget {
     required this.controller,
     this.expandToParent = true,
     this.fixedSize,
+    this.shaderAssetKey = 'packages/sai_nodes/shaders/grid.frag',
     required this.overlay,
     this.headerBuilder,
     this.fieldBuilder,
@@ -55,6 +55,7 @@ class NodeEditorWidget extends StatelessWidget {
             left: 0,
             child: NodeEditorDataLayer(
               controller: controller,
+              shaderAssetKey: shaderAssetKey,
               expandToParent: expandToParent,
               fixedSize: fixedSize,
               overlay: overlay,
@@ -80,7 +81,6 @@ class NodeEditorWidget extends StatelessWidget {
               ),
             ),
           ),
-          if (kDebugMode) DebugInfoWidget(controller: controller),
         ],
       ),
     );

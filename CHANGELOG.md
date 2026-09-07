@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.2
+
+- Removed the development-only viewport border, origin marker, and debug
+  metrics from the editor surface.
+- Made primary-button dragging on the canvas pan the viewport; hold Shift for
+  area selection.
+- Hardened desktop pointer handling for node selection and combined mouse
+  button states.
+
 ## 0.2.1
 
 - Added generic directional selection navigation.

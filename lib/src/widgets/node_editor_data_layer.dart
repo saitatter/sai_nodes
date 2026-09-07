@@ -23,6 +23,7 @@ import 'package:flutter_shaders/flutter_shaders.dart';
 
 class NodeEditorDataLayer extends StatefulWidget {
   final NodeEditorController controller;
+  final String shaderAssetKey;
   final bool expandToParent;
   final Size? fixedSize;
   final List<OverlayData> Function() overlay;
@@ -39,6 +40,7 @@ class NodeEditorDataLayer extends StatefulWidget {
   const NodeEditorDataLayer({
     super.key,
     required this.controller,
+    required this.shaderAssetKey,
     required this.expandToParent,
     required this.fixedSize,
     required this.overlay,
@@ -127,7 +129,43 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
 
   void _onDragStart() {
     _isDragging = true;
+    _lastPositionDelta = Offset.zero;
     _startKineticTimer();
+  }
+
+  bool _isNodeAtScreenPosition(Offset position) {
+    final editorRenderObject = editorKey.currentContext?.findRenderObject();
+    if (editorRenderObject is! RenderBox || !editorRenderObject.hasSize) {
+      return false;
+    }
+
+    final worldPosition = RenderBoxUtils.screenToWorld(
+      editorKey,
+      position,
+      offset,
+      zoom,
+    );
+    if (worldPosition == null) return false;
+
+    for (final nodeId in widget.controller.nodesSpatialHashGrid.queryCoords(
+      worldPosition,
+    )) {
+      final node = widget.controller.nodes[nodeId];
+      final renderObject = node?.key.currentContext?.findRenderObject();
+      if (renderObject is! RenderBox || !renderObject.hasSize) continue;
+
+      final topLeft = widget.controller.worldToScreen(
+        node!.offset,
+        editorRenderObject.size,
+      );
+      final bounds = topLeft &
+          Size(
+            renderObject.size.width * zoom,
+            renderObject.size.height * zoom,
+          );
+      if (bounds.contains(position)) return true;
+    }
+    return false;
   }
 
   void _onDragUpdate(Offset delta) {
@@ -717,16 +755,26 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
                   _isSelecting = false;
 
                   final locator = _isNearPort(event.position);
+                  final isPrimary = event.buttons & kPrimaryMouseButton != 0;
+                  final isMiddle = event.buttons & kMiddleMouseButton != 0;
 
-                  if (event.buttons == kMiddleMouseButton) {
+                  if (isMiddle) {
                     _onDragStart();
-                  } else if (event.buttons == kPrimaryMouseButton) {
+                  } else if (isPrimary) {
                     if (locator != null && !_isLinking && _tempLink == null) {
                       _onLinkStart(locator);
+                    } else if (_isNodeAtScreenPosition(event.position)) {
+                      // The node widget owns selection and node dragging.
+                    } else if (HardwareKeyboard.instance.isShiftPressed &&
+                        widget.controller.config.enableAreaSelection) {
+                      _onHighlightStart(event.position);
+                    } else if (widget.controller.config.enablePan) {
+                      widget.controller.clearSelection();
+                      _onDragStart();
                     } else {
                       _onHighlightStart(event.position);
                     }
-                  } else if (event.buttons == kSecondaryMouseButton) {
+                  } else if (event.buttons & kSecondaryMouseButton != 0) {
                     if (locator != null &&
                         !widget.controller.nodes[locator.nodeId]!.state
                             .isCollapsed) {
@@ -806,7 +854,7 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
     return controlsWrapper(
       RepaintBoundary(
         child: ShaderBuilder(
-          assetKey: 'packages/sai_nodes/shaders/grid.frag',
+          assetKey: widget.shaderAssetKey,
           (context, gridShader, child) => NodeEditorRenderObjectWidget(
             key: editorKey,
             controller: widget.controller,

@@ -12,7 +12,6 @@ import 'package:sai_nodes/src/styles/styles.dart';
 import 'package:sai_nodes/src/widgets/builders.dart';
 import 'package:sai_nodes/src/widgets/node_editor_context_menu.dart';
 import 'package:sai_nodes/src/widgets/default_node.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -521,11 +520,6 @@ class NodeEditorRenderBox extends RenderBox
 
     _paintHighlightArea(context.canvas, viewport);
 
-    if (kDebugMode) {
-      paintDebugViewport(context.canvas, viewport);
-      paintDebugOffset(context.canvas, size);
-    }
-
     _controller.nodesDataDirty = false;
     _controller.linksDataDirty = false;
     _transformMatrixDirty = false;
@@ -952,30 +946,6 @@ class NodeEditorRenderBox extends RenderBox
     canvas.drawRect(_highlightArea!, borderPaint);
   }
 
-  ///////////////////////////////////////////////////////////////////
-  /// Debug methods
-  ///////////////////////////////////////////////////////////////////
-
-  @visibleForTesting
-  void paintDebugViewport(Canvas canvas, Rect viewport) {
-    final Paint debugPaint = Paint()
-      ..color = Colors.red
-      ..style = PaintingStyle.stroke;
-
-    // Draw the viewport rect
-    canvas.drawRect(viewport, debugPaint);
-  }
-
-  @visibleForTesting
-  void paintDebugOffset(Canvas canvas, Size size) {
-    final Paint debugPaint = Paint()
-      ..color = Colors.green.withAlpha(200)
-      ..style = PaintingStyle.fill;
-
-    // Draw the offset point
-    canvas.drawCircle(Offset.zero, 5, debugPaint);
-  }
-
   //////////////////////////////////////////////////////////////////
   /// Built-in hit testing methods
   //////////////////////////////////////////////////////////////////
@@ -1358,7 +1328,12 @@ class NodeEditorRenderBox extends RenderBox
 
   /// Handles node hit events (click/hover)
   void _handleNodeHit(String nodeId, PointerEvent event) {
-    if (event is PointerHoverEvent) {
+    if (event is PointerDownEvent && event.buttons & kPrimaryMouseButton != 0) {
+      _controller.selectNodesById(
+        {nodeId},
+        holdSelection: HardwareKeyboard.instance.isControlPressed,
+      );
+    } else if (event is PointerHoverEvent) {
       _setNodeHover(nodeId);
     }
   }
