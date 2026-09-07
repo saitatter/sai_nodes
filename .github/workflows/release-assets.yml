@@ -1,0 +1,47 @@
+name: Attach package archive to GitHub Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    if: startsWith(github.event.release.tag_name, 'v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Verify release version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          expected_version="${RELEASE_TAG#v}"
+          package_version="$(awk '/^version:/ { gsub(/["'"']/, "", $2); print $2; exit }' pubspec.yaml)"
+
+          if [ "$expected_version" != "$package_version" ]; then
+            echo "Release tag $RELEASE_TAG does not match pubspec.yaml version $package_version."
+            exit 1
+          fi
+
+      - name: Create source archives
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          mkdir -p dist
+          git archive --format=zip --output="dist/sai_nodes-${version}.zip" HEAD
+          git archive --format=tar.gz --output="dist/sai_nodes-${version}.tar.gz" HEAD
+
+      - name: Upload archives to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$RELEASE_TAG" dist/* --clobber
