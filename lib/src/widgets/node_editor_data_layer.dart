@@ -139,6 +139,12 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
       return false;
     }
 
+    // PointerEvent.position is global, while worldToScreen returns a point
+    // relative to the editor render box. Comparing the two directly makes
+    // every node miss whenever the editor is offset by a sidebar, toolbar, or
+    // native window chrome.
+    final localPosition = editorRenderObject.globalToLocal(position);
+
     final worldPosition = RenderBoxUtils.screenToWorld(
       editorKey,
       position,
@@ -163,7 +169,7 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
             renderObject.size.width * zoom,
             renderObject.size.height * zoom,
           );
-      if (bounds.contains(position)) return true;
+      if (bounds.contains(localPosition)) return true;
     }
     return false;
   }
@@ -748,7 +754,6 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
           : Focus(
               autofocus: true,
               child: ImprovedListener(
-                onDoubleClick: () => widget.controller.clearSelection(),
                 onPointerPressed: (event) {
                   _isLinking = false;
                   _tempLink = null;
@@ -757,16 +762,28 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
                   final locator = _isNearPort(event.position);
                   final isPrimary = event.buttons & kPrimaryMouseButton != 0;
                   final isMiddle = event.buttons & kMiddleMouseButton != 0;
+                  final isNode = _isNodeAtScreenPosition(event.position);
 
                   if (isMiddle) {
                     _onDragStart();
                   } else if (isPrimary) {
                     if (locator != null && !_isLinking && _tempLink == null) {
                       _onLinkStart(locator);
-                    } else if (_isNodeAtScreenPosition(event.position)) {
+                    } else if (isNode) {
                       // The node widget owns selection and node dragging.
-                    } else if (HardwareKeyboard.instance.isShiftPressed &&
-                        widget.controller.config.enableAreaSelection) {
+                    } else if (HardwareKeyboard.instance.isLogicalKeyPressed(
+                          LogicalKeyboardKey.space,
+                        ) &&
+                        widget.controller.config.enablePan) {
+                      // Match the desktop editor convention: hold Space and
+                      // drag with the primary button to pan the canvas.
+                      widget.controller.clearSelection();
+                      _onDragStart();
+                    } else if (widget.controller.config.enableAreaSelection) {
+                      // A primary drag on empty canvas starts a rubber-band
+                      // selection. Ctrl/Meta is applied when the selection is
+                      // committed in _onHighlightEnd.
+                      widget.controller.clearSelection();
                       _onHighlightStart(event.position);
                     } else if (widget.controller.config.enablePan) {
                       widget.controller.clearSelection();
