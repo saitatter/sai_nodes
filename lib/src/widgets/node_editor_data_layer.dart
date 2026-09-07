@@ -804,8 +804,11 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
                         ),
                         position: event.position,
                       );
-                    } else {
+                    } else if (!_isNodeAtScreenPosition(event.position)) {
                       // Else show the editor context menu.
+                      // A node owns its own context menu. Opening the canvas
+                      // menu here as well would place a dismissible route over
+                      // the node and swallow the matching pointer-up event.
                       showEditorMenu(event.position);
                     }
                   }
