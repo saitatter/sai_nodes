@@ -46,7 +46,11 @@ class NodeEditorWidget extends StatelessWidget {
       decoration: controller.style.decoration,
       padding: controller.style.padding,
       child: Stack(
-        clipBehavior: Clip.none,
+        // The canvas and its projections must stay inside the editor. In
+        // particular, a frame or rubber-band selection may legitimately have
+        // world coordinates outside the current viewport, but it must never
+        // paint over the surrounding workspace, toolbar, or sidebar.
+        clipBehavior: Clip.hardEdge,
         children: [
           Positioned(
             top: 0,

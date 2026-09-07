@@ -104,6 +104,48 @@ void main() {
     }
   });
 
+  testWidgets('clips canvas projections to the editor bounds', (tester) async {
+    final controller = NodeEditorController(
+      config: const NodeEditorConfig(
+        autoBuildGraph: false,
+        autoRunGraph: false,
+      ),
+    );
+    addTearDown(controller.dispose);
+    controller.registerNodePrototype(_prototype('node'));
+    controller.addNode('node');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 420,
+            height: 300,
+            child: NodeEditorWidget(
+              controller: controller,
+              shaderAssetKey: 'shaders/grid.frag',
+              overlay: () => const <OverlayData>[],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final editorStacks = tester
+        .widgetList<Stack>(
+          find.descendant(
+            of: find.byType(NodeEditorWidget),
+            matching: find.byType(Stack),
+          ),
+        )
+        .toList();
+    expect(
+      editorStacks.any((stack) => stack.clipBehavior == Clip.hardEdge),
+      isTrue,
+    );
+  });
+
   testWidgets('node hit testing uses the editor local coordinate space',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
