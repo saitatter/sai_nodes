@@ -162,7 +162,10 @@ void main() {
 
   testWidgets('node context menus remain open after a secondary click',
       (tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    // The widget tree's platform is the source of truth for interaction
+    // mode. Keep the process-wide default different to catch regressions
+    // where nodes accidentally choose mobile gestures on a desktop canvas.
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
     try {
       final controller = NodeEditorController(
         config: const NodeEditorConfig(
@@ -178,6 +181,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.windows),
           home: Scaffold(
             body: SizedBox(
               width: 800,

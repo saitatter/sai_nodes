@@ -7,7 +7,6 @@ import 'package:sai_nodes/src/core/utils/rendering/renderbox.dart';
 import 'package:sai_nodes/src/widgets/context_menu.dart';
 import 'package:sai_nodes/src/widgets/improved_listener.dart';
 import 'package:sai_nodes/src/widgets/node_editor_context_menu.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -287,8 +286,11 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
   }
 
   Widget controlsWrapper(Widget child) {
-    return defaultTargetPlatform == TargetPlatform.android ||
-            defaultTargetPlatform == TargetPlatform.iOS
+    final platform = Theme.of(context).platform;
+    final isMobilePlatform =
+        platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+
+    return isMobilePlatform
         ? GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTap: () {
@@ -375,10 +377,10 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
                 }
 
                 _pendingSecondaryMenuPosition = event.position;
-                _pendingSecondaryPort = locator != null &&
-                        !widget.node.state.isCollapsed
-                    ? locator
-                    : null;
+                _pendingSecondaryPort =
+                    locator != null && !widget.node.state.isCollapsed
+                        ? locator
+                        : null;
               } else if (event.buttons == kPrimaryMouseButton) {
                 if (locator != null && !_isLinking && _tempLink == null) {
                   _onTmpLinkStart(locator);
