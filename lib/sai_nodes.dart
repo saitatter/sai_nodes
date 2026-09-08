@@ -100,6 +100,7 @@ export 'package:sai_nodes/src/widgets/builders.dart'
         EditorContextMenuBuilder,
         NodeContextMenuBuilder,
         NodeBuilder,
+        NodeDoubleTapCallback,
         NodeFieldBuilder,
         NodeHeaderBuilder,
         NodePortBuilder,

@@ -72,29 +72,21 @@ final class RenderBoxUtils {
     Offset offset,
     double zoom,
   ) {
-    // Get the bounds of the editor widget on the screen
-    final nodeEditorBounds = getEditorBoundsInScreen(editorKey);
-    if (nodeEditorBounds == null) return null;
-    final size = nodeEditorBounds.size;
+    final renderObject = editorKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize || zoom <= 0) {
+      return null;
+    }
 
-    // Adjust the screen position relative to the top-left of the editor
-    final adjustedScreenPosition = screenPosition - nodeEditorBounds.topLeft;
-
-    // Calculate the viewport rectangle in canvas space
-    final viewport = Rect.fromLTWH(
-      -size.width / 2 / zoom - offset.dx,
-      -size.height / 2 / zoom - offset.dy,
-      size.width / zoom,
-      size.height / zoom,
+    // Convert through the actual RenderBox instead of reconstructing its
+    // global bounds. This keeps pointer coordinates correct when the editor
+    // is nested in padded/split layouts, and also respects any transformed
+    // ancestor introduced by a desktop window or a test harness.
+    final localPosition = renderObject.globalToLocal(screenPosition);
+    final size = renderObject.size;
+    return Offset(
+      (localPosition.dx - size.width / 2) / zoom - offset.dx,
+      (localPosition.dy - size.height / 2) / zoom - offset.dy,
     );
-
-    // Calculate the canvas position corresponding to the screen position
-    final canvasX = viewport.left +
-        (adjustedScreenPosition.dx / size.width) * viewport.width;
-    final canvasY = viewport.top +
-        (adjustedScreenPosition.dy / size.height) * viewport.height;
-
-    return Offset(canvasX, canvasY);
   }
 
   /// Calculates the encompassing rectangle of a list of rectangles.
