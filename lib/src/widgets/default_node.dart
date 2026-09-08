@@ -793,10 +793,17 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
     );
 
     final fixedSize = widget.node.customSize;
+    final defaultWidth = widget.controller.config.defaultNodeWidth;
     final sizedNode = fixedSize == null
-        ? IntrinsicHeight(
-            child: IntrinsicWidth(child: nodeContent),
-          )
+        ? defaultWidth == null
+            ? IntrinsicHeight(child: IntrinsicWidth(child: nodeContent))
+            : SizedBox(
+                width: defaultWidth.clamp(
+                  widget.controller.config.minNodeWidth,
+                  widget.controller.config.maxNodeWidth,
+                ),
+                child: nodeContent,
+              )
         : SizedBox(
             width: fixedSize.width,
             height: fixedSize.height,

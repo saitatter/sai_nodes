@@ -202,6 +202,7 @@ void main() {
       minNodeHeight: 30,
       maxNodeWidth: 400,
       maxNodeHeight: 500,
+      defaultNodeWidth: 220,
       linkHitTestTolerance: 6,
       portHitTestTolerance: 7,
       enableNodeResize: true,
@@ -219,6 +220,7 @@ void main() {
       minNodeHeight: 50,
       maxNodeWidth: 600,
       maxNodeHeight: 700,
+      defaultNodeWidth: 260,
       linkHitTestTolerance: 8,
       portHitTestTolerance: 9,
       enableNodeResize: false,
@@ -235,6 +237,7 @@ void main() {
     expect(copy.minNodeHeight, 50);
     expect(copy.maxNodeWidth, 600);
     expect(copy.maxNodeHeight, 700);
+    expect(copy.defaultNodeWidth, 260);
     expect(copy.linkHitTestTolerance, 8);
     expect(copy.portHitTestTolerance, 9);
     expect(copy.enableNodeResize, isFalse);
@@ -254,6 +257,10 @@ void main() {
     );
     expect(
       () => NodeEditorConfig(portHitTestTolerance: -1),
+      throwsA(isA<AssertionError>()),
+    );
+    expect(
+      () => NodeEditorConfig(defaultNodeWidth: 0),
       throwsA(isA<AssertionError>()),
     );
   });

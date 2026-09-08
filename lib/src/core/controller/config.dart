@@ -30,6 +30,11 @@ class NodeEditorConfig {
   /// Maximum fixed node height in logical editor units.
   final double maxNodeHeight;
 
+  /// Optional width used by default nodes when no persisted custom size exists.
+  /// This lets hosts match a product's canonical card width without making
+  /// every node implementation wrap itself in a fixed-size widget.
+  final double? defaultNodeWidth;
+
   /// Distance from a link path at which pointer interaction is accepted.
   final double linkHitTestTolerance;
 
@@ -65,6 +70,7 @@ class NodeEditorConfig {
     this.minNodeHeight = 48.0,
     this.maxNodeWidth = 1600.0,
     this.maxNodeHeight = 1200.0,
+    this.defaultNodeWidth,
     this.linkHitTestTolerance = 4.0,
     this.portHitTestTolerance = 4.0,
     this.enableNodeResize = false,
@@ -81,6 +87,10 @@ class NodeEditorConfig {
         assert(maxNodeWidth >= minNodeWidth && maxNodeWidth < double.infinity),
         assert(
           maxNodeHeight >= minNodeHeight && maxNodeHeight < double.infinity,
+        ),
+        assert(
+          defaultNodeWidth == null ||
+              (defaultNodeWidth > 0 && defaultNodeWidth < double.infinity),
         ),
         assert(
           linkHitTestTolerance >= 0 && linkHitTestTolerance < double.infinity,
@@ -107,6 +117,7 @@ class NodeEditorConfig {
     double? minNodeHeight,
     double? maxNodeWidth,
     double? maxNodeHeight,
+    double? defaultNodeWidth,
     double? linkHitTestTolerance,
     double? portHitTestTolerance,
     bool? enableNodeResize,
@@ -138,6 +149,7 @@ class NodeEditorConfig {
       minNodeHeight: minNodeHeight ?? this.minNodeHeight,
       maxNodeWidth: maxNodeWidth ?? this.maxNodeWidth,
       maxNodeHeight: maxNodeHeight ?? this.maxNodeHeight,
+      defaultNodeWidth: defaultNodeWidth ?? this.defaultNodeWidth,
       linkHitTestTolerance: linkHitTestTolerance ?? this.linkHitTestTolerance,
       portHitTestTolerance: portHitTestTolerance ?? this.portHitTestTolerance,
       enableNodeResize: enableNodeResize ?? this.enableNodeResize,

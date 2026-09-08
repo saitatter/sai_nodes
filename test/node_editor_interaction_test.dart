@@ -110,6 +110,40 @@ void main() {
     }
   });
 
+  testWidgets('default node width uses the host canonical card width',
+      (tester) async {
+    final controller = NodeEditorController(
+      config: const NodeEditorConfig(
+        autoBuildGraph: false,
+        autoRunGraph: false,
+        defaultNodeWidth: 220,
+      ),
+    );
+    addTearDown(controller.dispose);
+    controller.registerNodePrototype(_prototype('node'));
+    final node = controller.addNode('node');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 800,
+            height: 600,
+            child: NodeEditorWidget(
+              controller: controller,
+              shaderAssetKey: 'shaders/grid.frag',
+              overlay: () => const <OverlayData>[],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final nodeBox = node.key.currentContext!.findRenderObject()! as RenderBox;
+    expect(nodeBox.size.width, 220);
+  });
+
   testWidgets('node double tap delegates to the host application',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
