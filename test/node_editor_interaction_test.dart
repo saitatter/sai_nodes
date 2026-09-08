@@ -31,6 +31,9 @@ void main() {
       controller.registerNodePrototype(_prototype('node'));
       final node = controller.addNode('node');
       node.customSize = const Size(180, 100);
+      final events = <NodeEditorEvent>[];
+      final eventSubscription = controller.eventBus.events.listen(events.add);
+      addTearDown(eventSubscription.cancel);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -76,6 +79,9 @@ void main() {
       );
       await tester.pump();
       expect(node.offset, isNot(initialNodeOffset));
+      expect(events.whereType<DragSelectionStartEvent>(), hasLength(1));
+      expect(events.whereType<DragSelectionEvent>(), isNotEmpty);
+      expect(events.whereType<DragSelectionEndEvent>(), hasLength(1));
 
       await tester.tapAt(const Offset(400, 300));
       await tester.pump();

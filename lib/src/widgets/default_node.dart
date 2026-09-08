@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_context_menu/flutter_context_menu.dart';
+import 'package:uuid/uuid.dart';
 
 import '../constants.dart';
 import '../core/models/data.dart';
@@ -56,6 +57,7 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
   // Interaction state for linking ports.
   bool _isLinking = false;
   bool _resizePointer = false;
+  bool _selectionDragStarted = false;
 
   // Timer for auto-scrolling when dragging near the edge.
   Timer? _edgeTimer;
@@ -288,6 +290,34 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
     widget.controller.clearTempLink();
   }
 
+  void _beginSelectionDrag(Offset position) {
+    if (_selectionDragStarted) return;
+    _selectionDragStarted = true;
+    widget.controller.eventBus.emit(
+      DragSelectionStartEvent(
+        widget.controller.selectedNodeIds.toSet(),
+        position,
+        id: const Uuid().v4(),
+      ),
+    );
+  }
+
+  void _endSelectionDrag(Offset position) {
+    if (!_selectionDragStarted) return;
+    _selectionDragStarted = false;
+    widget.controller.eventBus.emit(
+      DragSelectionEndEvent(
+        position,
+        widget.controller.selectedNodeIds.toSet(),
+        id: const Uuid().v4(),
+      ),
+    );
+  }
+
+  void _cancelSelectionDrag() {
+    _selectionDragStarted = false;
+  }
+
   Widget controlsWrapper(Widget child) {
     final platform = Theme.of(context).platform;
     final isMobilePlatform =
@@ -344,6 +374,7 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
                 _onTmpLinkUpdate(details.globalPosition);
               } else {
                 _startEdgeTimer(details.globalPosition);
+                _beginSelectionDrag(details.globalPosition);
                 widget.controller.dragSelection(details.delta);
               }
             },
@@ -362,6 +393,7 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
                 }
                 _isLinking = false;
               } else {
+                _endSelectionDrag(_lastPanPosition ?? Offset.zero);
                 _resetEdgeTimer();
               }
             },
@@ -402,6 +434,7 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
                 _onTmpLinkUpdate(event.position);
               } else if (event.buttons == kPrimaryMouseButton) {
                 _startEdgeTimer(event.position);
+                _beginSelectionDrag(event.position);
                 widget.controller.dragSelection(event.delta);
               }
             },
@@ -440,10 +473,12 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
                   );
                 }
               } else {
+                _endSelectionDrag(event.position);
                 _resetEdgeTimer();
               }
             },
             onPointerCanceled: (_) {
+              _cancelSelectionDrag();
               _pendingSecondaryMenuPosition = null;
               _pendingSecondaryPort = null;
               _resetEdgeTimer();
