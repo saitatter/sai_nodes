@@ -980,14 +980,10 @@ class _PortWidget extends StatelessWidget {
     }
 
     if (portBuilder != null) {
-      // The port key is used by the editor to calculate the real wire
-      // endpoint after custom builders have laid out their content. Keep the
-      // key at the boundary so host builders cannot accidentally make every
-      // custom port fall back to Offset.zero.
-      return KeyedSubtree(
-        key: port.key,
-        child: portBuilder!(context, port, node.builtStyle),
-      );
+      // Custom builders must attach [port.key] to their root widget. The
+      // editor uses that key to calculate the real wire endpoint after the
+      // host content has laid out.
+      return portBuilder!(context, port, node.builtStyle);
     }
 
     final isInput = port.prototype.direction == PortDirection.input;

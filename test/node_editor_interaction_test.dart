@@ -208,6 +208,7 @@ void main() {
               shaderAssetKey: 'shaders/grid.frag',
               overlay: () => const <OverlayData>[],
               portBuilder: (context, port, style) => Text(
+                key: port.key,
                 port.prototype.displayName(context),
               ),
             ),
