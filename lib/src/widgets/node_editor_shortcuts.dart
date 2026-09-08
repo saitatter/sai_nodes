@@ -51,12 +51,12 @@ class NodeEditorShortcutsWidget extends StatelessWidget {
           LogicalKeyboardKey.equal,
           control: !isMacOS,
           meta: isMacOS,
-        ): () => controller.setViewportZoom(0.1),
+        ): () => controller.setViewportZoom(0.1, animate: false),
         SingleActivator(
           LogicalKeyboardKey.minus,
           control: !isMacOS,
           meta: isMacOS,
-        ): () => controller.setViewportZoom(-0.1),
+        ): () => controller.setViewportZoom(-0.1, animate: false),
         SingleActivator(
           LogicalKeyboardKey.digit0,
           control: !isMacOS,

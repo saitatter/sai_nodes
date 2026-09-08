@@ -64,7 +64,8 @@ class NodeEditorToolbar extends StatelessWidget {
                   _button(
                     tooltip: 'Zoom out',
                     icon: Icons.remove,
-                    onPressed: () => controller.setViewportZoom(-0.1),
+                    onPressed: () =>
+                        controller.setViewportZoom(-0.1, animate: false),
                   ),
                   SizedBox(
                     width: 48,
@@ -78,7 +79,8 @@ class NodeEditorToolbar extends StatelessWidget {
                   _button(
                     tooltip: 'Zoom in',
                     icon: Icons.add,
-                    onPressed: () => controller.setViewportZoom(0.1),
+                    onPressed: () =>
+                        controller.setViewportZoom(0.1, animate: false),
                   ),
                   const SizedBox(width: 4),
                   IconButton(
