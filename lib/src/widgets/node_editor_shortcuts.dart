@@ -12,6 +12,7 @@ class NodeEditorShortcutsWidget extends StatelessWidget {
   final VoidCallback? onDuplicate;
   final void Function(LogicalKeyboardKey key, {required bool extendSelection})?
       onMoveSelection;
+  final VoidCallback? onSearch;
 
   const NodeEditorShortcutsWidget({
     super.key,
@@ -22,6 +23,7 @@ class NodeEditorShortcutsWidget extends StatelessWidget {
     this.onCut,
     this.onDuplicate,
     this.onMoveSelection,
+    this.onSearch,
   });
 
   @override
@@ -47,6 +49,11 @@ class NodeEditorShortcutsWidget extends StatelessWidget {
       bindings: <ShortcutActivator, VoidCallback>{
         const SingleActivator(LogicalKeyboardKey.keyF):
             controller.focusAllNodes,
+        SingleActivator(
+          LogicalKeyboardKey.keyF,
+          control: !isMacOS,
+          meta: isMacOS,
+        ): onSearch ?? controller.focusAllNodes,
         SingleActivator(
           LogicalKeyboardKey.equal,
           control: !isMacOS,
