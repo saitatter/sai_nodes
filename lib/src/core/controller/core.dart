@@ -1320,34 +1320,48 @@ class NodeEditorController with ChangeNotifier {
         .toList();
     if (selected.length < 2) return;
 
+    final sizes = {
+      for (final node in selected) node.id: _renderedNodeSize(node),
+    };
     final value = switch (alignment) {
       NodeAlignment.left => selected.map((node) => node.offset.dx).reduce(min),
-      NodeAlignment.centerHorizontal =>
-        selected.map((node) => node.offset.dx).reduce((a, b) => a + b) /
-            selected.length,
-      NodeAlignment.right => selected.map((node) => node.offset.dx).reduce(max),
+      NodeAlignment.centerHorizontal => selected
+              .map((node) => node.offset.dx + sizes[node.id]!.width / 2)
+              .reduce((a, b) => a + b) /
+          selected.length,
+      NodeAlignment.right => selected
+          .map((node) => node.offset.dx + sizes[node.id]!.width)
+          .reduce(max),
       NodeAlignment.top => selected.map((node) => node.offset.dy).reduce(min),
-      NodeAlignment.centerVertical =>
-        selected.map((node) => node.offset.dy).reduce((a, b) => a + b) /
-            selected.length,
-      NodeAlignment.bottom =>
-        selected.map((node) => node.offset.dy).reduce(max),
+      NodeAlignment.centerVertical => selected
+              .map((node) => node.offset.dy + sizes[node.id]!.height / 2)
+              .reduce((a, b) => a + b) /
+          selected.length,
+      NodeAlignment.bottom => selected
+          .map((node) => node.offset.dy + sizes[node.id]!.height)
+          .reduce(max),
     };
 
     final positions = <String, Offset>{};
     for (final node in selected) {
+      final size = sizes[node.id]!;
       positions[node.id] = switch (alignment) {
-        NodeAlignment.left ||
-        NodeAlignment.centerHorizontal ||
-        NodeAlignment.right =>
-          Offset(value, node.offset.dy),
-        NodeAlignment.top ||
-        NodeAlignment.centerVertical ||
-        NodeAlignment.bottom =>
-          Offset(node.offset.dx, value),
+        NodeAlignment.left => Offset(value, node.offset.dy),
+        NodeAlignment.centerHorizontal =>
+          Offset(value - size.width / 2, node.offset.dy),
+        NodeAlignment.right => Offset(value - size.width, node.offset.dy),
+        NodeAlignment.top => Offset(node.offset.dx, value),
+        NodeAlignment.centerVertical =>
+          Offset(node.offset.dx, value - size.height / 2),
+        NodeAlignment.bottom => Offset(node.offset.dx, value - size.height),
       };
     }
     applyLayout(positions);
+  }
+
+  Size _renderedNodeSize(NodeDataModel node) {
+    final renderSize = RenderBoxUtils.getSizeFromGlobalKey(node.key);
+    return renderSize ?? node.customSize ?? Size.zero;
   }
 
   void distributeSelectedNodes(NodeDistributionAxis axis) {

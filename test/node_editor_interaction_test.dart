@@ -218,10 +218,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(node.ports['in']!.key.currentContext?.findRenderObject(),
-        isA<RenderBox>());
-    expect(node.ports['out']!.key.currentContext?.findRenderObject(),
-        isA<RenderBox>());
+    expect(
+      node.ports['in']!.key.currentContext?.findRenderObject(),
+      isA<RenderBox>(),
+    );
+    expect(
+      node.ports['out']!.key.currentContext?.findRenderObject(),
+      isA<RenderBox>(),
+    );
     expect(node.ports['in']!.offset.dy, greaterThan(0));
     expect(node.ports['out']!.offset.dx, greaterThan(0));
   });
