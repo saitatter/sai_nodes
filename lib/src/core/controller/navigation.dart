@@ -9,7 +9,7 @@ Offset _center(NodeDataModel node) {
   RenderBox? box;
   try {
     box = node.key.currentContext?.findRenderObject() as RenderBox?;
-  } on StateError {
+  } on Object {
     box = null;
   }
   final size =
