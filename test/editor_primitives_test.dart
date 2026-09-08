@@ -161,6 +161,20 @@ void main() {
     }
   });
 
+  test('link labels expose a minimum width for editor hosts', () {
+    const style = LinkLabelStyle(
+      textStyle: TextStyle(fontSize: 11),
+      backgroundColor: Color(0xff121216),
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      borderRadius: BorderRadius.all(Radius.circular(11)),
+      maxWidth: 150,
+      minWidth: 60,
+    );
+
+    expect(style.minWidth, 60);
+    expect(style.copyWith(minWidth: 72).minWidth, 72);
+  });
+
   test('layout is one undoable operation', () async {
     final first = controller.addNode('node', offset: const Offset(0, 10));
     final second = controller.addNode('node', offset: const Offset(100, 70));

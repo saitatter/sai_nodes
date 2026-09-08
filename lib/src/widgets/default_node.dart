@@ -478,6 +478,9 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
               }
             },
             onPointerCanceled: (_) {
+              if (_isLinking) {
+                _onTmpLinkCancel();
+              }
               _cancelSelectionDrag();
               _pendingSecondaryMenuPosition = null;
               _pendingSecondaryPort = null;

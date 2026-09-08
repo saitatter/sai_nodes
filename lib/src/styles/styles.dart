@@ -419,6 +419,7 @@ class LinkLabelStyle {
   final EdgeInsets padding;
   final BorderRadius borderRadius;
   final double maxWidth;
+  final double minWidth;
 
   const LinkLabelStyle({
     required this.textStyle,
@@ -426,6 +427,7 @@ class LinkLabelStyle {
     required this.padding,
     required this.borderRadius,
     required this.maxWidth,
+    this.minWidth = 0,
   });
 
   const factory LinkLabelStyle.basic() = LinkLabelStyle._constBasic;
@@ -438,7 +440,8 @@ class LinkLabelStyle {
         backgroundColor = const Color(0xDD263238),
         padding = const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         borderRadius = const BorderRadius.all(Radius.circular(4)),
-        maxWidth = 240;
+        maxWidth = 240,
+        minWidth = 0;
 
   LinkLabelStyle copyWith({
     TextStyle? textStyle,
@@ -446,6 +449,7 @@ class LinkLabelStyle {
     EdgeInsets? padding,
     BorderRadius? borderRadius,
     double? maxWidth,
+    double? minWidth,
   }) {
     return LinkLabelStyle(
       textStyle: textStyle ?? this.textStyle,
@@ -453,6 +457,7 @@ class LinkLabelStyle {
       padding: padding ?? this.padding,
       borderRadius: borderRadius ?? this.borderRadius,
       maxWidth: maxWidth ?? this.maxWidth,
+      minWidth: minWidth ?? this.minWidth,
     );
   }
 }

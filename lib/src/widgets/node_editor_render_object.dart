@@ -725,7 +725,10 @@ class NodeEditorRenderBox extends RenderBox
 
       final labelRect = Rect.fromCenter(
         center: position,
-        width: textPainter.width + style.padding.horizontal,
+        width: math.max(
+          style.minWidth,
+          textPainter.width + style.padding.horizontal,
+        ),
         height: textPainter.height + style.padding.vertical,
       );
       canvas.drawRRect(
