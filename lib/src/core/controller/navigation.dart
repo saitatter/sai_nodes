@@ -2,9 +2,18 @@ import '../models/data.dart';
 import 'package:flutter/rendering.dart';
 
 Offset _center(NodeDataModel node) {
-  final box = node.key.currentContext?.findRenderObject();
+  // Navigation is also used by headless hosts and unit tests, where Flutter's
+  // widget binding may not exist yet. Accessing GlobalKey.currentContext in
+  // that state throws before it can return null, so keep the optional layout
+  // lookup guarded and fall back to the persisted/custom geometry.
+  RenderBox? box;
+  try {
+    box = node.key.currentContext?.findRenderObject() as RenderBox?;
+  } on StateError {
+    box = null;
+  }
   final size =
-      box is RenderBox && box.hasSize ? box.size : node.customSize ?? Size.zero;
+      box != null && box.hasSize ? box.size : node.customSize ?? Size.zero;
   return node.offset + size.center(Offset.zero);
 }
 
