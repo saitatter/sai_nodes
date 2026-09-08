@@ -165,6 +165,66 @@ void main() {
     }
   });
 
+  testWidgets('custom port builders preserve endpoint layout keys',
+      (tester) async {
+    final controller = NodeEditorController(
+      config: const NodeEditorConfig(
+        autoBuildGraph: false,
+        autoRunGraph: false,
+        enableSnapToGrid: false,
+      ),
+    );
+    addTearDown(controller.dispose);
+    controller.registerNodePrototype(
+      NodePrototype(
+        idName: 'ports',
+        displayName: (_) => 'ports',
+        description: (_) => 'ports',
+        ports: [
+          ControlInputPortPrototype(
+            idName: 'in',
+            displayName: (_) => 'In',
+            styleBuilder: defaultPortStyleBuilder,
+          ),
+          ControlOutputPortPrototype(
+            idName: 'out',
+            displayName: (_) => 'Out',
+            styleBuilder: defaultPortStyleBuilder,
+          ),
+        ],
+        onExecute: (ports, fields, state, forward, put) async {},
+      ),
+    );
+    final node = controller.addNode('ports');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 800,
+            height: 600,
+            child: NodeEditorWidget(
+              controller: controller,
+              shaderAssetKey: 'shaders/grid.frag',
+              overlay: () => const <OverlayData>[],
+              portBuilder: (context, port, style) => Text(
+                port.prototype.displayName(context),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(node.ports['in']!.key.currentContext?.findRenderObject(),
+        isA<RenderBox>());
+    expect(node.ports['out']!.key.currentContext?.findRenderObject(),
+        isA<RenderBox>());
+    expect(node.ports['in']!.offset.dy, greaterThan(0));
+    expect(node.ports['out']!.offset.dx, greaterThan(0));
+  });
+
   testWidgets('clips canvas projections to the editor bounds', (tester) async {
     final controller = NodeEditorController(
       config: const NodeEditorConfig(

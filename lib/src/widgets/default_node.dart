@@ -980,7 +980,14 @@ class _PortWidget extends StatelessWidget {
     }
 
     if (portBuilder != null) {
-      return portBuilder!(context, port, node.builtStyle);
+      // The port key is used by the editor to calculate the real wire
+      // endpoint after custom builders have laid out their content. Keep the
+      // key at the boundary so host builders cannot accidentally make every
+      // custom port fall back to Offset.zero.
+      return KeyedSubtree(
+        key: port.key,
+        child: portBuilder!(context, port, node.builtStyle),
+      );
     }
 
     final isInput = port.prototype.direction == PortDirection.input;
@@ -1090,24 +1097,27 @@ class _FieldWidget extends StatelessWidget {
           );
 
     // Wrap the content with a GestureDetector to ensure tap handling.
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: GestureDetector(
-        onTapDown: (details) {
-          if (field.prototype.onVisualizerTap != null) {
-            field.prototype.onVisualizerTap!(field.data, (dynamic data) {
-              controller.setFieldData(
-                node.id,
-                field.prototype.idName,
-                data: data,
-                eventType: FieldEventType.submit,
-              );
-            });
-          } else {
-            _showFieldEditorOverlay(context, details);
-          }
-        },
-        child: fieldContent,
+    return KeyedSubtree(
+      key: field.key,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: GestureDetector(
+          onTapDown: (details) {
+            if (field.prototype.onVisualizerTap != null) {
+              field.prototype.onVisualizerTap!(field.data, (dynamic data) {
+                controller.setFieldData(
+                  node.id,
+                  field.prototype.idName,
+                  data: data,
+                  eventType: FieldEventType.submit,
+                );
+              });
+            } else {
+              _showFieldEditorOverlay(context, details);
+            }
+          },
+          child: fieldContent,
+        ),
       ),
     );
   }
