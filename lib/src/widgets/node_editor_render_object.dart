@@ -505,10 +505,15 @@ class NodeEditorRenderBox extends RenderBox
     // Canvas state does not survive paintChild when a child introduces a
     // composited layer. Keep the viewport transform and clip in the layer
     // tree so nodes, ports, and selection share the same coordinates.
+    //
+    // `pushTransform` applies the transform around the supplied paint offset.
+    // Passing `offset` to the layer and again embedding it in the matrix
+    // translates the whole world twice when this render object is placed
+    // below a translated/composited parent. That is the source of the
+    // apparently detached selection rectangle seen by host applications.
     context.pushClipRect(true, offset, Offset.zero & size, (context, offset) {
-      final transform = Matrix4.translationValues(offset.dx, offset.dy, 0)
-        ..multiply(_getTransformMatrix());
-      context.pushTransform(true, Offset.zero, transform, (context, offset) {
+      context.pushTransform(true, offset, _getTransformMatrix(),
+          (context, offset) {
         _paintWorld(context);
       });
     });
@@ -517,30 +522,41 @@ class NodeEditorRenderBox extends RenderBox
   void _paintWorld(PaintingContext context) {
     final viewport = _calculateViewport();
 
+    // Keep every world-space primitive inside the finite render box. The
+    // layer clip above protects the transformed result, while this explicit
+    // world clip also protects custom painters and composited children that
+    // may otherwise retain an expanded canvas outside the viewport.
+    context.canvas.save();
+    context.canvas.clipRect(viewport);
+
     // Performing the visibility update here ensures all layout operations are done.
 
-    _visibleNodes = _controller.nodesSpatialHashGrid
-        .queryArea(
-          // Inflate the viewport to include nodes that are close to the edges
-          viewport.inflate(300),
-        )
-        .union(_childrenNotPainted);
+    try {
+      _visibleNodes = _controller.nodesSpatialHashGrid
+          .queryArea(
+            // Inflate the viewport to include nodes that are close to the edges
+            viewport.inflate(300),
+          )
+          .union(_childrenNotPainted);
 
-    _paintGrid(context.canvas, viewport);
+      _paintGrid(context.canvas, viewport);
 
-    _paintLinks(context.canvas, viewport);
+      _paintLinks(context.canvas, viewport);
 
-    _paintChildren(context);
+      _paintChildren(context);
 
-    _paintTemporaryLink(context.canvas);
+      _paintTemporaryLink(context.canvas);
 
-    _paintHighlightArea(context.canvas, viewport);
+      _paintHighlightArea(context.canvas, viewport);
 
-    _controller.nodesDataDirty = false;
-    _controller.linksDataDirty = false;
-    _transformMatrixDirty = false;
+      _controller.nodesDataDirty = false;
+      _controller.linksDataDirty = false;
+      _transformMatrixDirty = false;
 
-    _childrenNotPainted.clear();
+      _childrenNotPainted.clear();
+    } finally {
+      context.canvas.restore();
+    }
   }
 
   Matrix4 _getTransformMatrix() {
@@ -1307,8 +1323,12 @@ class NodeEditorRenderBox extends RenderBox
   void handleEvent(PointerEvent event, BoxHitTestEntry entry) {
     super.handleEvent(event, entry);
 
+    // The event's localPosition is relative to the event receiver, while the
+    // render object may have been hit through a transformed parent. The hit
+    // test entry is the authoritative position in this render box's local
+    // coordinate space and must be used for the world conversion.
     final Offset centeredPosition =
-        event.localPosition - Offset(size.width / 2, size.height / 2);
+        entry.localPosition - Offset(size.width / 2, size.height / 2);
     final Offset scaledPosition = centeredPosition.scale(1 / _zoom, 1 / _zoom);
     final Offset transformedPosition = scaledPosition - _offset;
 

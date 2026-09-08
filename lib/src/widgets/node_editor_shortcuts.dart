@@ -10,6 +10,7 @@ class NodeEditorShortcutsWidget extends StatelessWidget {
   final Future<void> Function(BuildContext context)? onPaste;
   final Future<void> Function(BuildContext context)? onCut;
   final VoidCallback? onDuplicate;
+  final VoidCallback? onDeleteSelection;
   final void Function(LogicalKeyboardKey key, {required bool extendSelection})?
       onMoveSelection;
   final VoidCallback? onSearch;
@@ -22,6 +23,7 @@ class NodeEditorShortcutsWidget extends StatelessWidget {
     this.onPaste,
     this.onCut,
     this.onDuplicate,
+    this.onDeleteSelection,
     this.onMoveSelection,
     this.onSearch,
   });
@@ -77,10 +79,18 @@ class NodeEditorShortcutsWidget extends StatelessWidget {
         const SingleActivator(LogicalKeyboardKey.escape): () =>
             controller.clearSelection(),
         const SingleActivator(LogicalKeyboardKey.delete): () {
-          controller.deleteSelection();
+          if (onDeleteSelection != null) {
+            onDeleteSelection!();
+          } else {
+            controller.deleteSelection();
+          }
         },
         const SingleActivator(LogicalKeyboardKey.backspace): () {
-          controller.deleteSelection();
+          if (onDeleteSelection != null) {
+            onDeleteSelection!();
+          } else {
+            controller.deleteSelection();
+          }
         },
         SingleActivator(
           LogicalKeyboardKey.keyC,

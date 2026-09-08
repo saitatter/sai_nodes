@@ -53,4 +53,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.viewportZoom, closeTo(0.9, 0.001));
   });
+
+  testWidgets('hosts can override deletion for domain resources',
+      (tester) async {
+    final controller = NodeEditorController(
+      config: const NodeEditorConfig(
+        autoBuildGraph: false,
+        autoRunGraph: false,
+      ),
+    );
+    addTearDown(controller.dispose);
+    var called = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NodeEditorShortcutsWidget(
+          controller: controller,
+          onDeleteSelection: () => called = true,
+          child: const SizedBox(width: 200, height: 120),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+
+    expect(called, isTrue);
+  });
 }
