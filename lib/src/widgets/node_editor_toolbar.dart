@@ -18,7 +18,10 @@ class NodeEditorToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: controller,
+        animation: Listenable.merge([
+          controller,
+          controller.viewportZoomNotifier,
+        ]),
         builder: (context, child) {
           final hasNodes = controller.nodes.isNotEmpty;
           final hasSelection = controller.selectedNodeIds.isNotEmpty;
