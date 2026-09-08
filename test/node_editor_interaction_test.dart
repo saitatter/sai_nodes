@@ -226,6 +226,111 @@ void main() {
     expect(node.ports['out']!.offset.dx, greaterThan(0));
   });
 
+  testWidgets('dragging an existing link reconnects it to another port',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    try {
+      final controller = NodeEditorController(
+        config: const NodeEditorConfig(
+          autoBuildGraph: false,
+          autoRunGraph: false,
+          enableSnapToGrid: false,
+        ),
+      );
+      addTearDown(controller.dispose);
+      controller.registerNodePrototype(
+        NodePrototype(
+          idName: 'flow',
+          displayName: (_) => 'flow',
+          description: (_) => 'flow',
+          ports: [
+            ControlInputPortPrototype(
+              idName: 'in',
+              displayName: (_) => 'In',
+              styleBuilder: defaultPortStyleBuilder,
+            ),
+            ControlOutputPortPrototype(
+              idName: 'out',
+              displayName: (_) => 'Out',
+              styleBuilder: defaultPortStyleBuilder,
+            ),
+          ],
+          onExecute: (ports, fields, state, forward, put) async {},
+        ),
+      );
+      final source = controller.addNode(
+        'flow',
+        offset: const Offset(-240, -40),
+        snapToGrid: false,
+      )..customSize = const Size(120, 100);
+      final oldTarget = controller.addNode(
+        'flow',
+        offset: const Offset(40, -40),
+        snapToGrid: false,
+      )..customSize = const Size(120, 100);
+      final newTarget = controller.addNode(
+        'flow',
+        offset: const Offset(40, 180),
+        snapToGrid: false,
+      )..customSize = const Size(120, 100);
+      controller.addLink(source.id, 'out', oldTarget.id, 'in');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.windows),
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 600,
+              child: NodeEditorWidget(
+                controller: controller,
+                shaderAssetKey: 'shaders/grid.frag',
+                overlay: () => const <OverlayData>[],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final editorBox =
+          controller.editorKey.currentContext!.findRenderObject()! as RenderBox;
+      final link = controller.linksAsList.single;
+      final start = source.offset + source.ports['out']!.offset;
+      final end = oldTarget.offset + oldTarget.ports['in']!.offset;
+      final linkPoint = editorBox.localToGlobal(
+        controller.worldToScreen(
+          Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2),
+          editorBox.size,
+        ),
+      );
+      final targetPoint = editorBox.localToGlobal(
+        controller.worldToScreen(
+          newTarget.offset + newTarget.ports['in']!.offset,
+          editorBox.size,
+        ),
+      );
+
+      final gesture = await tester.startGesture(
+        linkPoint,
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveTo(targetPoint);
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      expect(controller.linksAsList, hasLength(1));
+      expect(controller.linksAsList.single.id, isNot(link.id));
+      expect(
+        controller.linksAsList.single.endpoints.targetNodeId,
+        newTarget.id,
+      );
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
   testWidgets('clips canvas projections to the editor bounds', (tester) async {
     final controller = NodeEditorController(
       config: const NodeEditorConfig(

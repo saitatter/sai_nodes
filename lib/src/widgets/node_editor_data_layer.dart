@@ -7,6 +7,7 @@ import 'package:sai_nodes/src/core/events/events.dart';
 import 'package:sai_nodes/src/core/localization/delegate.dart';
 import 'package:sai_nodes/src/core/models/data.dart';
 import 'package:sai_nodes/src/core/models/overlay.dart';
+import 'package:sai_nodes/src/core/utils/rendering/paths.dart';
 import 'package:sai_nodes/src/core/utils/rendering/renderbox.dart';
 import 'package:sai_nodes/src/styles/styles.dart';
 import 'package:sai_nodes/src/widgets/builders.dart';
@@ -85,6 +86,7 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
   Timer? _kineticTimer;
   Offset _selectionStart = Offset.zero;
   _PortLocator? _tempLink;
+  String? _draggedLinkId;
 
   // Gesture recognizers
   late final ScaleGestureRecognizer _trackpadGestureRecognizer;
@@ -282,8 +284,57 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
     return null;
   }
 
-  void _onLinkStart(_PortLocator locator) {
+  String? _isNearLink(Offset position) {
+    final worldPosition = RenderBoxUtils.screenToWorld(
+      editorKey,
+      position,
+      offset,
+      zoom,
+    );
+    if (worldPosition == null) return null;
+
+    for (final link in widget.controller.linksAsList.reversed) {
+      final source = widget.controller.nodes[link.endpoints.sourceNodeId];
+      final target = widget.controller.nodes[link.endpoints.targetNodeId];
+      final sourcePort = source?.ports[link.endpoints.sourcePortId];
+      final targetPort = target?.ports[link.endpoints.targetPortId];
+      if (source == null ||
+          target == null ||
+          sourcePort == null ||
+          targetPort == null) {
+        continue;
+      }
+
+      final start = source.offset + sourcePort.offset;
+      final end = target.offset + targetPort.offset;
+      final curve = sourcePort.style.linkStyleBuilder(link.state).curveType;
+      final distance = switch (curve) {
+        LinkCurveType.straight => PathUtils.distanceToStraightLine(
+            worldPosition,
+            start,
+            end,
+          ),
+        LinkCurveType.ninetyDegree => PathUtils.distanceToNinetyDegrees(
+            worldPosition,
+            start,
+            end,
+          ),
+        LinkCurveType.bezier => PathUtils.distanceToBezier(
+            worldPosition,
+            start,
+            end,
+          ),
+      };
+      if (distance <= widget.controller.config.linkHitTestTolerance) {
+        return link.id;
+      }
+    }
+    return null;
+  }
+
+  void _onLinkStart(_PortLocator locator, {String? draggedLinkId}) {
     _tempLink = (nodeId: locator.nodeId, portId: locator.portId);
+    _draggedLinkId = draggedLinkId;
     _isLinking = true;
   }
 
@@ -310,19 +361,25 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
   void _onLinkCancel() {
     _isLinking = false;
     _tempLink = null;
+    _draggedLinkId = null;
     widget.controller.clearTempLink();
   }
 
   void _onLinkEnd(_PortLocator locator) {
-    widget.controller.addLink(
+    final draggedLinkId = _draggedLinkId;
+    final link = widget.controller.addLink(
       _tempLink!.nodeId,
       _tempLink!.portId,
       locator.nodeId,
       locator.portId,
     );
+    if (link != null && draggedLinkId != null && link.id != draggedLinkId) {
+      widget.controller.removeLinkById(draggedLinkId);
+    }
 
     _isLinking = false;
     _tempLink = null;
+    _draggedLinkId = null;
     widget.controller.clearTempLink();
   }
 
@@ -764,18 +821,33 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
                 onPointerPressed: (event) {
                   _isLinking = false;
                   _tempLink = null;
+                  _draggedLinkId = null;
                   _isSelecting = false;
 
                   final locator = _isNearPort(event.position);
                   final isPrimary = event.buttons & kPrimaryMouseButton != 0;
                   final isMiddle = event.buttons & kMiddleMouseButton != 0;
                   final isNode = _isNodeAtScreenPosition(event.position);
+                  final linkId = isPrimary && locator == null && !isNode
+                      ? _isNearLink(event.position)
+                      : null;
 
                   if (isMiddle) {
                     _onDragStart();
                   } else if (isPrimary) {
                     if (locator != null && !_isLinking && _tempLink == null) {
                       _onLinkStart(locator);
+                    } else if (linkId != null) {
+                      final link = widget.controller.links[linkId];
+                      if (link != null) {
+                        _onLinkStart(
+                          (
+                            nodeId: link.endpoints.sourceNodeId,
+                            portId: link.endpoints.sourcePortId,
+                          ),
+                          draggedLinkId: linkId,
+                        );
+                      }
                     } else if (isNode) {
                       // The node widget owns selection and node dragging.
                     } else if (HardwareKeyboard.instance.isLogicalKeyPressed(
@@ -850,6 +922,7 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
                     _onHighlightEnd();
                   }
                 },
+                onPointerCanceled: (_) => _suppressEvents(),
                 onPointerSignalReceived: (event) {
                   if (event is PointerScrollEvent &&
                       widget.controller.config.enablePan &&
