@@ -16,7 +16,7 @@ void main() {
         idName: 'test.node',
         displayName: (_) => 'Node',
         description: (_) => 'Node',
-        onExecute: (_, _, _, _, _) async {},
+        onExecute: (ports, fields, state, forward, put) async {},
       ),
     );
 
