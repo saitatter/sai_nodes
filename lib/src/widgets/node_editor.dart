@@ -20,6 +20,7 @@ class NodeEditorWidget extends StatelessWidget {
   final NodeEditorMenuBuilder? nodeEditorMenuBuilder;
   final NodeMenuBuilder? nodeMenuBuilder;
   final NodeBuilder? nodeBuilder;
+  final NodeDoubleTapCallback? onNodeDoubleTap;
   final NodeResizeBuilder? resizeBuilder;
 
   const NodeEditorWidget({
@@ -37,6 +38,7 @@ class NodeEditorWidget extends StatelessWidget {
     this.nodeEditorMenuBuilder,
     this.nodeMenuBuilder,
     this.nodeBuilder,
+    this.onNodeDoubleTap,
     this.resizeBuilder,
   });
 
@@ -71,6 +73,7 @@ class NodeEditorWidget extends StatelessWidget {
               nodeEditorMenuBuilder: nodeEditorMenuBuilder,
               nodeMenuBuilder: nodeMenuBuilder,
               nodeBuilder: nodeBuilder,
+              onNodeDoubleTap: onNodeDoubleTap,
               resizeBuilder: resizeBuilder,
             ),
           ),

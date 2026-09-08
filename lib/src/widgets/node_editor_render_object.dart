@@ -66,6 +66,7 @@ class NodeEditorRenderObjectWidget extends MultiChildRenderObjectWidget {
   final NodeContextMenuBuilder? contextMenuBuilder;
   final NodeMenuBuilder? nodeMenuBuilder;
   final NodeBuilder? nodeBuilder;
+  final NodeDoubleTapCallback? onNodeDoubleTap;
   final NodeResizeBuilder? resizeBuilder;
 
   NodeEditorRenderObjectWidget({
@@ -78,6 +79,7 @@ class NodeEditorRenderObjectWidget extends MultiChildRenderObjectWidget {
     this.contextMenuBuilder,
     this.nodeMenuBuilder,
     this.nodeBuilder,
+    this.onNodeDoubleTap,
     this.resizeBuilder,
   }) : super(
           children: controller.nodesAsList
@@ -91,6 +93,7 @@ class NodeEditorRenderObjectWidget extends MultiChildRenderObjectWidget {
                   contextMenuBuilder: contextMenuBuilder,
                   nodeMenuBuilder: nodeMenuBuilder,
                   nodeBuilder: nodeBuilder,
+                  onNodeDoubleTap: onNodeDoubleTap,
                   resizeBuilder: resizeBuilder,
                 ),
               )

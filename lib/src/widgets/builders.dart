@@ -58,6 +58,13 @@ typedef NodeBuilder = Widget Function(
   NodeDataModel node,
 );
 
+/// Called after a desktop double-click on a node. Hosts can use this for
+/// domain-specific actions such as opening a subgraph or inline editor.
+typedef NodeDoubleTapCallback = void Function(
+  BuildContext context,
+  NodeDataModel node,
+);
+
 /// Builds an optional resize handle for a node.
 ///
 /// The callback receives a size in the node's logical coordinate space.

@@ -31,6 +31,7 @@ class DefaultNodeWidget extends StatefulWidget {
   final NodeContextMenuBuilder? contextMenuBuilder;
   final NodeMenuBuilder? nodeMenuBuilder;
   final NodeBuilder? nodeBuilder;
+  final NodeDoubleTapCallback? onNodeDoubleTap;
   final NodeResizeBuilder? resizeBuilder;
 
   const DefaultNodeWidget({
@@ -43,6 +44,7 @@ class DefaultNodeWidget extends StatefulWidget {
     this.contextMenuBuilder,
     this.nodeMenuBuilder,
     this.nodeBuilder,
+    this.onNodeDoubleTap,
     this.resizeBuilder,
   });
 
@@ -291,7 +293,7 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
     final isMobilePlatform =
         platform == TargetPlatform.android || platform == TargetPlatform.iOS;
 
-    return isMobilePlatform
+    final wrappedChild = isMobilePlatform
         ? GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTap: () {
@@ -448,6 +450,13 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
             },
             child: child,
           );
+
+    if (widget.onNodeDoubleTap == null) return wrappedChild;
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onDoubleTap: () => widget.onNodeDoubleTap!(context, widget.node),
+      child: wrappedChild,
+    );
   }
 
   List<ContextMenuEntry> _defaultNodeContextMenuEntries() {

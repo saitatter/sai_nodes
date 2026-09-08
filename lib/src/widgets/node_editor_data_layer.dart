@@ -35,6 +35,7 @@ class NodeEditorDataLayer extends StatefulWidget {
   final NodeEditorMenuBuilder? nodeEditorMenuBuilder;
   final NodeMenuBuilder? nodeMenuBuilder;
   final NodeBuilder? nodeBuilder;
+  final NodeDoubleTapCallback? onNodeDoubleTap;
   final NodeResizeBuilder? resizeBuilder;
 
   const NodeEditorDataLayer({
@@ -52,6 +53,7 @@ class NodeEditorDataLayer extends StatefulWidget {
     this.nodeEditorMenuBuilder,
     this.nodeMenuBuilder,
     this.nodeBuilder,
+    this.onNodeDoubleTap,
     this.resizeBuilder,
   });
 
@@ -890,6 +892,7 @@ class _NodeEditorDataLayerState extends State<NodeEditorDataLayer>
             contextMenuBuilder: widget.contextMenuBuilder,
             nodeMenuBuilder: widget.nodeMenuBuilder,
             nodeBuilder: widget.nodeBuilder,
+            onNodeDoubleTap: widget.onNodeDoubleTap,
             resizeBuilder: widget.resizeBuilder,
           ),
         ),
