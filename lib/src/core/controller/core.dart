@@ -1781,6 +1781,176 @@ class NodeEditorController with ChangeNotifier {
     );
   }
 
+  /// Reconciles a node's dynamic ports as one model mutation.
+  ///
+  /// The host supplies the desired port prototypes; this controller owns the
+  /// generic diff, link compatibility checks, and history entry. Existing
+  /// links remain attached when their endpoints are still compatible with the
+  /// desired port. Incompatible links are removed atomically.
+  bool reconcileNodePorts(
+    String nodeId,
+    Iterable<PortPrototype> desiredPorts, {
+    bool preserveCompatibleLinks = true,
+    String? eventId,
+    bool isHandled = false,
+  }) {
+    final node = nodes[nodeId];
+    if (node == null) return false;
+
+    final desired = <String, PortPrototype>{};
+    for (final prototype in desiredPorts) {
+      if (desired.containsKey(prototype.idName)) {
+        throw ArgumentError('Duplicate port ID: ${prototype.idName}');
+      }
+      desired[prototype.idName] = prototype;
+    }
+
+    final previousPorts = _copyPorts(node.ports);
+    final previousLinks = _linksForNode(nodeId);
+    final retainedLinks = <String, LinkDataModel>{};
+    final nextPorts = <String, PortDataModel>{};
+
+    for (final entry in desired.entries) {
+      final current = node.ports[entry.key];
+      final prototype = entry.value;
+      final retained = <LinkDataModel>{};
+      if (preserveCompatibleLinks && current != null) {
+        for (final link in current.links) {
+          if (_linkSupportsPort(link, nodeId, prototype)) {
+            retained.add(link);
+            retainedLinks[link.id] = link;
+          }
+        }
+      }
+
+      nextPorts[entry.key] = PortDataModel(
+        prototype: prototype,
+        state: current?.state.copyWith() ?? PortState(),
+        offset: current?.offset ?? Offset.zero,
+      )..links = retained;
+    }
+
+    final shapeChanged = node.ports.length != nextPorts.length ||
+        node.ports.entries.any(
+          (entry) => nextPorts[entry.key]?.prototype != entry.value.prototype,
+        );
+    final linksChanged = previousLinks.length != retainedLinks.length ||
+        previousLinks.keys.any((id) => !retainedLinks.containsKey(id));
+    if (!shapeChanged && !linksChanged) return false;
+
+    _detachNodeLinksSilently(nodeId);
+    node.ports
+      ..clear()
+      ..addAll(nextPorts);
+    for (final link in retainedLinks.values) {
+      _attachLinkSilently(link);
+    }
+
+    nodesDataDirty = true;
+    linksDataDirty = true;
+    eventBus.emit(
+      NodePortsChangeEvent(
+        nodeId: nodeId,
+        previousPorts: previousPorts,
+        nextPorts: _copyPorts(node.ports),
+        previousLinks: previousLinks,
+        nextLinks: _linksForNode(nodeId),
+        id: eventId ?? const Uuid().v4(),
+        isHandled: isHandled,
+      ),
+    );
+    return true;
+  }
+
+  /// Replays a port reconciliation during undo/redo.
+  void restoreNodePorts(NodePortsChangeEvent event, {required bool forward}) {
+    final node = nodes[event.nodeId];
+    if (node == null) return;
+
+    final ports = forward ? event.nextPorts : event.previousPorts;
+    final links = forward ? event.nextLinks : event.previousLinks;
+    _detachNodeLinksSilently(event.nodeId);
+    node.ports
+      ..clear()
+      ..addAll(_copyPorts(ports));
+    for (final link in links.values) {
+      _attachLinkSilently(_copyLink(link));
+    }
+    nodesDataDirty = true;
+    linksDataDirty = true;
+    eventBus.emit(event);
+  }
+
+  Map<String, PortDataModel> _copyPorts(
+    Map<String, PortDataModel> source,
+  ) =>
+      {
+        for (final entry in source.entries)
+          entry.key: PortDataModel(
+            prototype: entry.value.prototype,
+            state: entry.value.state.copyWith(),
+            offset: entry.value.offset,
+          ),
+      };
+
+  Map<String, LinkDataModel> _linksForNode(String nodeId) => {
+        for (final link in links.values)
+          if (link.endpoints.sourceNodeId == nodeId ||
+              link.endpoints.targetNodeId == nodeId)
+            link.id: _copyLink(link),
+      };
+
+  LinkDataModel _copyLink(LinkDataModel link) => link.copyWith(
+        state: LinkState(
+          isHovered: link.state.isHovered,
+          isSelected: link.state.isSelected,
+        ),
+      );
+
+  bool _linkSupportsPort(
+    LinkDataModel link,
+    String nodeId,
+    PortPrototype desired,
+  ) {
+    final isSource = link.endpoints.sourceNodeId == nodeId;
+    final otherNodeId =
+        isSource ? link.endpoints.targetNodeId : link.endpoints.sourceNodeId;
+    final otherPortId =
+        isSource ? link.endpoints.targetPortId : link.endpoints.sourcePortId;
+    final otherPort = nodes[otherNodeId]?.ports[otherPortId];
+    if (otherPort == null) return false;
+    return isSource
+        ? desired.compatibleWith(otherPort.prototype)
+        : otherPort.prototype.compatibleWith(desired);
+  }
+
+  void _detachNodeLinksSilently(String nodeId) {
+    final linkIds = <String>{
+      ...?nodes[nodeId]?.ports.values.expand(
+            (port) => port.links.map((link) => link.id),
+          ),
+      ...links.values
+          .where(
+            (link) =>
+                link.endpoints.sourceNodeId == nodeId ||
+                link.endpoints.targetNodeId == nodeId,
+          )
+          .map((link) => link.id),
+    };
+    for (final linkId in linkIds) {
+      final link = links[linkId];
+      if (link != null) {
+        _detachLinkSilently(link);
+      } else {
+        for (final candidate in nodes.values) {
+          for (final port in candidate.ports.values) {
+            port.links.removeWhere((link) => link.id == linkId);
+          }
+        }
+      }
+    }
+  }
+
   /////////////////////////////////////////////////////////////////////
   /// Miscellaneous helpers useful for node editors.
   /////////////////////////////////////////////////////////////////////

@@ -17,6 +17,7 @@ bool isNodeEditorContentMutation(NodeEditorEvent event) =>
     event is PasteSelectionEvent ||
     event is CutSelectionEvent ||
     event is NodeLayoutEvent ||
+    event is NodePortsChangeEvent ||
     event is SpliceNodeEvent ||
     event is NodeFrameChangeEvent ||
     (event is NodeFieldEvent && event.eventType != FieldEventType.change);

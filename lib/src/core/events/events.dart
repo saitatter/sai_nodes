@@ -192,6 +192,39 @@ final class NodeLayoutEvent extends NodeEditorEvent {
       };
 }
 
+/// Describes one atomic replacement of a node's port shape and connected
+/// links. Port prototypes are owned by the host's registered node prototype;
+/// the snapshots preserve the instances' layout state while the controller
+/// owns link reconciliation and history.
+final class NodePortsChangeEvent extends NodeEditorEvent {
+  const NodePortsChangeEvent({
+    required this.nodeId,
+    required this.previousPorts,
+    required this.nextPorts,
+    required this.previousLinks,
+    required this.nextLinks,
+    required super.id,
+    super.isHandled,
+  }) : super(isUndoable: true);
+
+  final String nodeId;
+  final Map<String, PortDataModel> previousPorts;
+  final Map<String, PortDataModel> nextPorts;
+  final Map<String, LinkDataModel> previousLinks;
+  final Map<String, LinkDataModel> nextLinks;
+
+  @override
+  Map<String, dynamic> toJson(Map<String, DataHandler> dataHandlers) => {
+        ...super.toJson(dataHandlers),
+        'nodeId': nodeId,
+        'previousPorts': previousPorts.keys.toList(),
+        'nextPorts': nextPorts.keys.toList(),
+        'previousLinks':
+            previousLinks.values.map((link) => link.toJson()).toList(),
+        'nextLinks': nextLinks.values.map((link) => link.toJson()).toList(),
+      };
+}
+
 /// Event produced when the user selects or deselects a group of links (one or more).
 final class LinkSelectionEvent extends NodeEditorEvent {
   final SelectionEventType type;

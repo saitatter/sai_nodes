@@ -41,6 +41,7 @@ export 'package:sai_nodes/src/core/events/events.dart'
         DrawTempLinkEvent,
         AreaHighlightEvent,
         NodeLayoutEvent,
+        NodePortsChangeEvent,
         NodeRenameEvent,
         NodeResizeEvent,
         SpliceNodeEvent,

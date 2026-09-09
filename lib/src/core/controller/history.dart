@@ -151,6 +151,8 @@ class NodeEditorHistoryHelper {
           eventId: event.id,
           isHandled: true,
         );
+      } else if (event is NodePortsChangeEvent) {
+        controller.restoreNodePorts(event, forward: false);
       } else if (event is SpliceNodeEvent) {
         controller.restoreSplice(event, forward: false);
       } else if (event is NodeFrameChangeEvent) {
@@ -231,6 +233,8 @@ class NodeEditorHistoryHelper {
           eventId: event.id,
           isHandled: true,
         );
+      } else if (event is NodePortsChangeEvent) {
+        controller.restoreNodePorts(event, forward: true);
       } else if (event is SpliceNodeEvent) {
         controller.restoreSplice(event, forward: true);
       } else if (event is NodeFrameChangeEvent) {

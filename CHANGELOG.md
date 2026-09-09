@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added atomic dynamic-port reconciliation with compatible-link preservation,
+  incompatible-link removal, and undo/redo support.
 - Added atomic graph splicing and generic frame/group operations with undo/redo support.
 - Fixed node resizing dragging the node simultaneously and scaling movement
   twice at non-default zoom levels; covered by desktop pointer tests.
