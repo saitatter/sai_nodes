@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added atomic graph splicing and generic frame/group operations with undo/redo support.
 - Fixed node resizing dragging the node simultaneously and scaling movement
   twice at non-default zoom levels; covered by desktop pointer tests.
 - Directional navigation now compares rendered node centers, including resized

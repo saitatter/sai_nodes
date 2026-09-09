@@ -34,6 +34,8 @@ Whether you're building tools for developers, designers, or end-users, **SAI Nod
 
 - 🔗 **Flexible Graph System** – Directional edges, typed ports, data links, control links, and more.
 
+- 🧩 **Compound Editing Operations** – Insert a node into an existing flow as one undoable operation and organize nodes in movable, resizable frames.
+
 - 📏 **Scalable Architecture** – Suitable for lightweight diagrams and complex editors.
 
 - 🌐 **Localization Support** – Easily adapt node-based UIs to multiple languages.
@@ -62,8 +64,6 @@ The package is being developed as a reusable foundation for workflow, shader, an
 
 - 🤖 **Node Configuration State Machine** – Dynamically add or remove ports and fields on nodes at runtime, allowing node structure to adapt to current links and input data.
 
-- 🧑‍🤝‍🧑 **Node Grouping** – Select multiple nodes and group them together for easier organization within complex graphs.
-
 - ♻️ **Reusable Graph Macros** – Define, save, and reuse templates made up of multiple nodes.
 
 - 🎩 **Enhanced Editor Mode** – Add advanced, opt-in editing tools and productivity shortcuts.
@@ -90,7 +90,7 @@ To add **SAI Nodes** to your Flutter project, include it in your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  sai_nodes: ^0.2.1
+  sai_nodes: ^0.2.2
 ```
 
 Then, run:
@@ -176,6 +176,8 @@ The controller also exposes reusable editor primitives for application hosts:
 - `screenToWorld`, `worldToScreen`, and `visibleWorldBounds` share the editor's
   viewport math.
 - `applyLayout` applies several node positions as one undoable operation.
+- `spliceNodeIntoLink` inserts a detached node between compatible flow endpoints as one undoable operation.
+- `createFrame`, `moveFrame`, `resizeFrame`, and frame membership methods provide generic editor-owned grouping primitives.
 - `clipboardPayloadEncoder` and `clipboardPayloadDecoder` allow a host to carry
   JSON-compatible metadata alongside the package-owned node payload.
 
