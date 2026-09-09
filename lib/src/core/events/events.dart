@@ -408,6 +408,61 @@ final class RemoveLinkEvent extends NodeEditorEvent {
   }
 }
 
+/// Describes one atomic insertion of a detached node into an existing link.
+///
+/// The original link and both replacement links are retained so a host can
+/// undo or redo the operation without reconstructing graph semantics.
+final class SpliceNodeEvent extends NodeEditorEvent {
+  const SpliceNodeEvent({
+    required this.originalLink,
+    required this.insertedNode,
+    required this.incomingLink,
+    required this.outgoingLink,
+    required super.id,
+    super.isHandled,
+  }) : super(isUndoable: true);
+
+  final LinkDataModel originalLink;
+  final NodeDataModel insertedNode;
+  final LinkDataModel incomingLink;
+  final LinkDataModel outgoingLink;
+
+  @override
+  Map<String, dynamic> toJson(Map<String, DataHandler> dataHandlers) => {
+        ...super.toJson(dataHandlers),
+        'originalLink': originalLink.toJson(),
+        'insertedNode': insertedNode.toJson(dataHandlers),
+        'incomingLink': incomingLink.toJson(),
+        'outgoingLink': outgoingLink.toJson(),
+      };
+}
+
+/// Describes one atomic frame creation, removal, or update.
+///
+/// A null previous/next frame represents creation/removal. For updates both
+/// snapshots are present, which makes frame operations one undoable action.
+final class NodeFrameChangeEvent extends NodeEditorEvent {
+  const NodeFrameChangeEvent({
+    required this.frameId,
+    required this.previousFrame,
+    required this.nextFrame,
+    required super.id,
+    super.isHandled,
+  }) : super(isUndoable: true);
+
+  final String frameId;
+  final NodeFrame? previousFrame;
+  final NodeFrame? nextFrame;
+
+  @override
+  Map<String, dynamic> toJson(Map<String, DataHandler> dataHandlers) => {
+        ...super.toJson(dataHandlers),
+        'frameId': frameId,
+        if (previousFrame != null) 'previousFrame': previousFrame!.toJson(),
+        if (nextFrame != null) 'nextFrame': nextFrame!.toJson(),
+      };
+}
+
 /// Event produced when a link label changes.
 final class LinkLabelChangeEvent extends NodeEditorEvent {
   final String linkId;

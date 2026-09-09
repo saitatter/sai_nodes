@@ -43,6 +43,8 @@ export 'package:sai_nodes/src/core/events/events.dart'
         NodeLayoutEvent,
         NodeRenameEvent,
         NodeResizeEvent,
+        SpliceNodeEvent,
+        NodeFrameChangeEvent,
         NodeHoverEvent,
         HoverEventType,
         CopySelectionEvent,
@@ -74,6 +76,7 @@ export 'package:sai_nodes/src/core/models/data.dart'
         PortState,
         NodeState,
         NodeDataModel;
+export 'package:sai_nodes/src/core/models/data.dart' show NodeFrame;
 export 'package:sai_nodes/src/core/models/overlay.dart';
 export 'package:sai_nodes/src/styles/styles.dart'
     show

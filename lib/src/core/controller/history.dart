@@ -151,6 +151,14 @@ class NodeEditorHistoryHelper {
           eventId: event.id,
           isHandled: true,
         );
+      } else if (event is SpliceNodeEvent) {
+        controller.restoreSplice(event, forward: false);
+      } else if (event is NodeFrameChangeEvent) {
+        controller.restoreFrameSnapshot(
+          event.frameId,
+          event.previousFrame,
+          eventId: event.id,
+        );
       }
     } finally {
       _isTraversingHistory = false;
@@ -222,6 +230,14 @@ class NodeEditorHistoryHelper {
           event.nextPositions,
           eventId: event.id,
           isHandled: true,
+        );
+      } else if (event is SpliceNodeEvent) {
+        controller.restoreSplice(event, forward: true);
+      } else if (event is NodeFrameChangeEvent) {
+        controller.restoreFrameSnapshot(
+          event.frameId,
+          event.nextFrame,
+          eventId: event.id,
         );
       }
     } finally {

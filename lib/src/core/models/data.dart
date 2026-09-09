@@ -670,6 +670,95 @@ final class NodeGroup {
   }
 }
 
+/// A generic canvas frame that groups nodes without changing graph semantics.
+/// Hosts can persist additional presentation metadata alongside this model.
+final class NodeFrame {
+  NodeFrame({
+    required this.id,
+    required this.title,
+    required this.bounds,
+    Iterable<String> members = const <String>{},
+  }) : members = Set<String>.unmodifiable(members);
+
+  final String id;
+  final String title;
+  final Rect bounds;
+  final Set<String> members;
+
+  NodeFrame copyWith({
+    String? id,
+    String? title,
+    Rect? bounds,
+    Iterable<String>? members,
+  }) =>
+      NodeFrame(
+        id: id ?? this.id,
+        title: title ?? this.title,
+        bounds: bounds ?? this.bounds,
+        members: members ?? this.members,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'bounds': {
+          'left': bounds.left,
+          'top': bounds.top,
+          'right': bounds.right,
+          'bottom': bounds.bottom,
+        },
+        'members': members.toList(),
+      };
+
+  factory NodeFrame.fromJson(Map<String, dynamic> json) {
+    final rawBounds = json['bounds'];
+    final left = rawBounds is Map
+        ? _number(rawBounds['left'] ?? rawBounds['x'])
+        : _number(json['left'] ?? json['x']);
+    final top = rawBounds is Map
+        ? _number(rawBounds['top'] ?? rawBounds['y'])
+        : _number(json['top'] ?? json['y']);
+    final right = rawBounds is Map && rawBounds['right'] is num
+        ? _number(rawBounds['right'])
+        : json['right'] is num
+            ? _number(json['right'])
+            : left +
+                _number(rawBounds is Map ? rawBounds['width'] : json['width']);
+    final bottom = rawBounds is Map && rawBounds['bottom'] is num
+        ? _number(rawBounds['bottom'])
+        : json['bottom'] is num
+            ? _number(json['bottom'])
+            : top +
+                _number(
+                  rawBounds is Map ? rawBounds['height'] : json['height'],
+                );
+    final rawMembers = json['members'] ?? json['nodeIds'];
+    return NodeFrame(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? json['name']?.toString() ?? 'Frame',
+      bounds: Rect.fromLTRB(left, top, right, bottom),
+      members: rawMembers is Iterable
+          ? rawMembers.map((member) => member.toString())
+          : const <String>{},
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is NodeFrame &&
+          id == other.id &&
+          title == other.title &&
+          bounds == other.bounds &&
+          members.length == other.members.length &&
+          members.containsAll(other.members);
+
+  @override
+  int get hashCode => Object.hash(id, title, bounds, Object.hashAll(members));
+}
+
+double _number(Object? value) => value is num ? value.toDouble() : 0;
+
 /// A container for all the data in a project.
 class NodeEditorProjectDataModel {
   Offset viewportOffset;

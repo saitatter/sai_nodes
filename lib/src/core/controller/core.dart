@@ -100,6 +100,7 @@ class NodeEditorController with ChangeNotifier {
   void clear() {
     nodes.clear();
     links.clear();
+    frames.clear();
     nodesSpatialHashGrid.clear();
     selectedNodeIds.clear();
     selectedLinkIds.clear();
@@ -492,6 +493,10 @@ class NodeEditorController with ChangeNotifier {
   List<NodeDataModel> get nodesAsList => nodes.values.toList();
   int get nodeCount => nodes.length;
 
+  /// Editor-owned grouping frames. Hosts may persist these separately from
+  /// [NodeEditorProjectDataModel] when frame metadata belongs to their schema.
+  final Map<String, NodeFrame> frames = {};
+
   Map<String, LinkDataModel> get links => project.projectData.links;
   List<LinkDataModel> get linksAsList =>
       project.projectData.links.values.toList();
@@ -547,21 +552,10 @@ class NodeEditorController with ChangeNotifier {
     Offset offset = Offset.zero,
     bool? snapToGrid,
   }) {
-    if (!nodePrototypes.containsKey(name)) {
-      throw Exception('Node prototype $name does not exist.');
-    }
-
-    if (snapToGrid ?? config.enableSnapToGrid) {
-      offset = Offset(
-        (offset.dx / config.snapToGridSize).round() * config.snapToGridSize,
-        (offset.dy / config.snapToGridSize).round() * config.snapToGridSize,
-      );
-    }
-
-    final instance = createNode(
-      nodePrototypes[name]!,
-      controller: this,
+    final instance = createNodeModel(
+      name,
       offset: offset,
+      snapToGrid: snapToGrid,
     );
 
     nodes.putIfAbsent(instance.id, () => instance);
@@ -574,6 +568,33 @@ class NodeEditorController with ChangeNotifier {
     );
 
     return instance;
+  }
+
+  /// Creates a detached node model suitable for [spliceNodeIntoLink].
+  ///
+  /// The returned node is not added to the project until the host explicitly
+  /// inserts it or passes it to a controller operation.
+  NodeDataModel createNodeModel(
+    String name, {
+    Offset offset = Offset.zero,
+    bool? snapToGrid,
+  }) {
+    if (!nodePrototypes.containsKey(name)) {
+      throw Exception('Node prototype $name does not exist.');
+    }
+
+    if (snapToGrid ?? config.enableSnapToGrid) {
+      offset = Offset(
+        (offset.dx / config.snapToGridSize).round() * config.snapToGridSize,
+        (offset.dy / config.snapToGridSize).round() * config.snapToGridSize,
+      );
+    }
+
+    return createNode(
+      nodePrototypes[name]!,
+      controller: this,
+      offset: offset,
+    );
   }
 
   /// This method is used to add a node from an existing node object.
@@ -829,6 +850,302 @@ class NodeEditorController with ChangeNotifier {
         id: eventId ?? const Uuid().v4(),
         link,
         isHandled: isHandled,
+      ),
+    );
+  }
+
+  /// Inserts a detached [node] between the endpoints of [linkId].
+  ///
+  /// The original link is replaced atomically with an incoming and outgoing
+  /// link. The operation emits one [SpliceNodeEvent], so it is represented by
+  /// one undo/redo step. Invalid or incompatible requests return `null` and
+  /// leave the graph untouched.
+  NodeDataModel? spliceNodeIntoLink(
+    String linkId,
+    NodeDataModel node, {
+    required String inputPortId,
+    required String outputPortId,
+    Offset? offset,
+  }) {
+    final original = links[linkId];
+    if (original == null ||
+        node.id.isEmpty ||
+        nodes.containsKey(node.id) ||
+        node.ports.values.any((port) => port.links.isNotEmpty)) {
+      return null;
+    }
+
+    final source = nodes[original.endpoints.sourceNodeId];
+    final target = nodes[original.endpoints.targetNodeId];
+    final sourcePort = source?.ports[original.endpoints.sourcePortId];
+    final targetPort = target?.ports[original.endpoints.targetPortId];
+    final inputPort = node.ports[inputPortId];
+    final outputPort = node.ports[outputPortId];
+    if (source == null ||
+        target == null ||
+        sourcePort == null ||
+        targetPort == null ||
+        inputPort == null ||
+        outputPort == null ||
+        inputPort.prototype.direction != PortDirection.input ||
+        outputPort.prototype.direction != PortDirection.output ||
+        !sourcePort.prototype.compatibleWith(inputPort.prototype) ||
+        !outputPort.prototype.compatibleWith(targetPort.prototype)) {
+      return null;
+    }
+
+    final inserted = offset == null ? node : node.copyWith(offset: offset);
+    final incoming = LinkDataModel(
+      id: const Uuid().v4(),
+      endpoints: (
+        sourceNodeId: source.id,
+        sourcePortId: sourcePort.prototype.idName,
+        targetNodeId: inserted.id,
+        targetPortId: inputPort.prototype.idName,
+      ),
+      state: LinkState(isSelected: original.state.isSelected),
+      // The branch label belongs to the outgoing edge from the original
+      // source, so it follows the incoming half of the splice.
+      label: original.label,
+    );
+    final outgoing = LinkDataModel(
+      id: const Uuid().v4(),
+      endpoints: (
+        sourceNodeId: inserted.id,
+        sourcePortId: outputPort.prototype.idName,
+        targetNodeId: target.id,
+        targetPortId: targetPort.prototype.idName,
+      ),
+      state: LinkState(),
+    );
+
+    try {
+      _detachLinkSilently(original);
+      _attachNodeSilently(inserted);
+      _attachLinkSilently(incoming);
+      _attachLinkSilently(outgoing);
+    } on Object {
+      _detachLinkSilently(incoming);
+      _detachLinkSilently(outgoing);
+      _detachNodeSilently(inserted);
+      _attachLinkSilently(original);
+      return null;
+    }
+
+    nodesDataDirty = true;
+    linksDataDirty = true;
+    eventBus.emit(
+      SpliceNodeEvent(
+        originalLink: original,
+        insertedNode: inserted,
+        incomingLink: incoming,
+        outgoingLink: outgoing,
+        id: const Uuid().v4(),
+      ),
+    );
+    return inserted;
+  }
+
+  /// Restores a splice during history traversal.
+  ///
+  /// This is public so the history helper can replay the compound operation;
+  /// callers should use [spliceNodeIntoLink] for new edits.
+  void restoreSplice(SpliceNodeEvent event, {required bool forward}) {
+    if (forward) {
+      _detachLinkSilently(event.originalLink);
+      _attachNodeSilently(event.insertedNode);
+      _attachLinkSilently(event.incomingLink);
+      _attachLinkSilently(event.outgoingLink);
+    } else {
+      _detachLinkSilently(event.incomingLink);
+      _detachLinkSilently(event.outgoingLink);
+      _detachNodeSilently(event.insertedNode);
+      _attachLinkSilently(event.originalLink);
+    }
+    nodesDataDirty = true;
+    linksDataDirty = true;
+    eventBus.emit(event);
+  }
+
+  void _attachNodeSilently(NodeDataModel node) {
+    nodes[node.id] = node;
+    unboundNodeOffsets[node.id] = node.offset;
+    if (node.state.isSelected) selectedNodeIds.add(node.id);
+  }
+
+  void _detachNodeSilently(NodeDataModel node) {
+    nodes.remove(node.id);
+    selectedNodeIds.remove(node.id);
+    unboundNodeOffsets.remove(node.id);
+  }
+
+  void _attachLinkSilently(LinkDataModel link) {
+    final source = nodes[link.endpoints.sourceNodeId];
+    final target = nodes[link.endpoints.targetNodeId];
+    if (source == null || target == null) return;
+    final sourcePort = source.ports[link.endpoints.sourcePortId];
+    final targetPort = target.ports[link.endpoints.targetPortId];
+    if (sourcePort == null || targetPort == null) return;
+    sourcePort.links.add(link);
+    targetPort.links.add(link);
+    links[link.id] = link;
+    if (link.state.isSelected) selectedLinkIds.add(link.id);
+  }
+
+  void _detachLinkSilently(LinkDataModel link) {
+    final source = nodes[link.endpoints.sourceNodeId];
+    final target = nodes[link.endpoints.targetNodeId];
+    source?.ports[link.endpoints.sourcePortId]?.links.remove(link);
+    target?.ports[link.endpoints.targetPortId]?.links.remove(link);
+    links.remove(link.id);
+    selectedLinkIds.remove(link.id);
+  }
+
+  /// Replaces a frame snapshot without adding a second history entry.
+  /// Used by [NodeEditorHistoryHelper] while replaying frame changes.
+  void restoreFrameSnapshot(
+    String frameId,
+    NodeFrame? frame, {
+    String? eventId,
+  }) {
+    final previous = frames[frameId];
+    if (frame == null) {
+      frames.remove(frameId);
+    } else {
+      frames[frameId] = frame;
+    }
+    eventBus.emit(
+      NodeFrameChangeEvent(
+        frameId: frameId,
+        previousFrame: previous,
+        nextFrame: frame,
+        id: eventId ?? const Uuid().v4(),
+        isHandled: true,
+      ),
+    );
+  }
+
+  NodeFrame? _updateFrame(
+    String frameId,
+    NodeFrame Function(NodeFrame current) transform,
+  ) {
+    final previous = frames[frameId];
+    if (previous == null) return null;
+    final next = transform(previous);
+    if (next == previous) return previous;
+    frames[frameId] = next;
+    eventBus.emit(
+      NodeFrameChangeEvent(
+        frameId: frameId,
+        previousFrame: previous,
+        nextFrame: next,
+        id: const Uuid().v4(),
+      ),
+    );
+    return next;
+  }
+
+  /// Creates a frame and returns the new model.
+  NodeFrame createFrame({
+    required String title,
+    required Rect bounds,
+    Iterable<String> members = const <String>{},
+    String? id,
+  }) {
+    final frameId = id ?? const Uuid().v4();
+    if (frames.containsKey(frameId)) {
+      throw StateError('A frame with ID $frameId already exists.');
+    }
+    final frame = NodeFrame(
+      id: frameId,
+      title: title.trim().isEmpty ? 'Frame' : title.trim(),
+      bounds: bounds,
+      members: members.where(nodes.containsKey),
+    );
+    frames[frameId] = frame;
+    eventBus.emit(
+      NodeFrameChangeEvent(
+        frameId: frameId,
+        previousFrame: null,
+        nextFrame: frame,
+        id: const Uuid().v4(),
+      ),
+    );
+    return frame;
+  }
+
+  /// Replaces the editor-owned frames while loading host-owned metadata.
+  void restoreFrames(Iterable<NodeFrame> restored) {
+    frames
+      ..clear()
+      ..addEntries(
+        restored
+            .where((frame) => frame.id.isNotEmpty)
+            .map((frame) => MapEntry(frame.id, frame)),
+      );
+  }
+
+  /// Removes a frame. Its nodes remain in the graph.
+  bool removeFrame(String frameId) {
+    final previous = frames.remove(frameId);
+    if (previous == null) return false;
+    eventBus.emit(
+      NodeFrameChangeEvent(
+        frameId: frameId,
+        previousFrame: previous,
+        nextFrame: null,
+        id: const Uuid().v4(),
+      ),
+    );
+    return true;
+  }
+
+  /// Moves a frame by a world-space delta.
+  NodeFrame? moveFrame(String frameId, Offset delta) => _updateFrame(
+        frameId,
+        (frame) => frame.copyWith(
+          bounds: frame.bounds.shift(delta),
+        ),
+      );
+
+  /// Resizes a frame from its bottom-right corner.
+  NodeFrame? resizeFrame(
+    String frameId,
+    Offset delta, {
+    Size minimumSize = const Size(0, 0),
+  }) =>
+      _updateFrame(frameId, (frame) {
+        final width = max(minimumSize.width, frame.bounds.width + delta.dx);
+        final height = max(minimumSize.height, frame.bounds.height + delta.dy);
+        return frame.copyWith(
+          bounds: Rect.fromLTWH(
+            frame.bounds.left,
+            frame.bounds.top,
+            width,
+            height,
+          ),
+        );
+      });
+
+  /// Adds existing nodes to a frame.
+  NodeFrame? addNodesToFrame(String frameId, Iterable<String> nodeIds) =>
+      _updateFrame(
+        frameId,
+        (frame) => frame.copyWith(
+          members: {
+            ...frame.members,
+            ...nodeIds.where(nodes.containsKey),
+          },
+        ),
+      );
+
+  /// Removes nodes from a frame without deleting them.
+  NodeFrame? removeNodesFromFrame(String frameId, Iterable<String> nodeIds) {
+    final ids = nodeIds.toSet();
+    return _updateFrame(
+      frameId,
+      (frame) => frame.copyWith(
+        members: frame.members.where((id) => !ids.contains(id)),
       ),
     );
   }
