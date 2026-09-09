@@ -138,6 +138,8 @@ class NodeEditorContextMenu extends StatefulWidget {
 }
 
 class _NodeEditorContextMenuState extends State<NodeEditorContextMenu> {
+  static const _hoverColor = Color(0x443d2454);
+  static const _pressedColor = Color(0x663d2454);
   final _searchController = TextEditingController();
   final _collapsedSections = <String>{};
   int _highlightedActionIndex = 0;
@@ -372,11 +374,16 @@ class _NodeEditorContextMenuState extends State<NodeEditorContextMenu> {
       height: 36,
       decoration: isHighlighted
           ? BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer,
+              color: const Color(0xff4a2860),
+              border: Border.all(color: const Color(0xffd99bff)),
               borderRadius: BorderRadius.circular(4),
             )
           : null,
       child: InkWell(
+        hoverColor: _hoverColor,
+        highlightColor: _pressedColor,
+        splashColor: _pressedColor,
+        borderRadius: BorderRadius.circular(4),
         onTap: action.enabled ? () => _select(action) : null,
         child: Row(
           children: [
@@ -412,6 +419,10 @@ class _NodeEditorContextMenuState extends State<NodeEditorContextMenu> {
         SizedBox(
           height: 36,
           child: InkWell(
+            hoverColor: _hoverColor,
+            highlightColor: _pressedColor,
+            splashColor: _pressedColor,
+            borderRadius: BorderRadius.circular(4),
             onTap: () => _toggleSection(path),
             child: Row(
               children: [
