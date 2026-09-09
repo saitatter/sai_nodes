@@ -21,12 +21,14 @@ class LinkPaintModel {
 class PortPaintModel {
   final (String, String) locator;
   final bool isSelected;
+  final bool isConnected;
   final Offset offset;
   final PortStyle style;
 
   PortPaintModel({
     required this.locator,
     required this.isSelected,
+    required this.isConnected,
     required this.offset,
     required this.style,
   });

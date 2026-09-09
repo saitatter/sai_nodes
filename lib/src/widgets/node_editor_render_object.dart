@@ -744,11 +744,11 @@ class NodeEditorRenderBox extends RenderBox
 
   final List<RenderBox> selectedChildren = [];
   final Path selectedShadowPath = Path();
-  final Map<PortStyle, (Path, Paint)> batchSelectedPortByStyle = {};
+  final Map<(PortStyle, bool), (Path, Paint)> batchSelectedPortByStyle = {};
 
   final List<RenderBox> unselectedChildren = [];
   final Path unselectedShadowPath = Path();
-  final Map<PortStyle, (Path, Paint)> batchUnselectedPortByStyle = {};
+  final Map<(PortStyle, bool), (Path, Paint)> batchUnselectedPortByStyle = {};
 
   final List<((String, String), Rect)> portsHitTestData = [];
 
@@ -795,6 +795,7 @@ class NodeEditorRenderBox extends RenderBox
               PortPaintModel(
                 locator: (nodeId, port.prototype.idName),
                 isSelected: childParentData.state.isSelected,
+                isConnected: port.links.isNotEmpty,
                 offset: childParentData.offset + port.offset,
                 style: port.style,
               ),
@@ -817,6 +818,7 @@ class NodeEditorRenderBox extends RenderBox
               PortPaintModel(
                 locator: (nodeId, port.prototype.idName),
                 isSelected: childParentData.state.isSelected,
+                isConnected: port.links.isNotEmpty,
                 offset: childParentData.offset + port.offset,
                 style: port.style,
               ),
@@ -832,12 +834,15 @@ class NodeEditorRenderBox extends RenderBox
             ? batchSelectedPortByStyle
             : batchUnselectedPortByStyle;
 
-        batchPortByStyle.putIfAbsent(style, () {
+        final batchKey = (style, data.isConnected);
+        batchPortByStyle.putIfAbsent(batchKey, () {
           return (
             Path(),
             Paint()
               ..color = style.color
-              ..style = PaintingStyle.fill,
+              ..style =
+                  data.isConnected ? PaintingStyle.fill : PaintingStyle.stroke
+              ..strokeWidth = data.isConnected ? 0 : 2,
           );
         });
 
@@ -854,7 +859,7 @@ class NodeEditorRenderBox extends RenderBox
 
         portsHitTestData.add((data.locator, path.getBounds()));
 
-        batchPortByStyle[style]!.$1.addPath(path, Offset.zero);
+        batchPortByStyle[batchKey]!.$1.addPath(path, Offset.zero);
       }
 
       if (!_portsPositionsDirty) {
