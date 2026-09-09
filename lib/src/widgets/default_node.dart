@@ -755,6 +755,30 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
             ),
           ],
         ),
+        if (widget.controller.config.edgeInputPortId case final edgeInputId?)
+          if (widget.node.ports[edgeInputId] case final edgeInput?)
+            Positioned.fill(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
+                  key: edgeInput.key,
+                  width: 1,
+                  height: 1,
+                ),
+              ),
+            ),
+        if (widget.controller.config.edgeOutputPortId case final edgeOutputId?)
+          if (widget.node.ports[edgeOutputId] case final edgeOutput?)
+            Positioned.fill(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: SizedBox(
+                  key: edgeOutput.key,
+                  width: 1,
+                  height: 1,
+                ),
+              ),
+            ),
         if (widget.resizeBuilder != null)
           Positioned(
             right: 4,
@@ -794,19 +818,34 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
 
     final fixedSize = widget.node.customSize;
     final defaultWidth = widget.controller.config.defaultNodeWidth;
+    final minimumSize = widget.controller.minimumNodeSizeFor(widget.node);
     final sizedNode = fixedSize == null
         ? defaultWidth == null
-            ? IntrinsicHeight(child: IntrinsicWidth(child: nodeContent))
+            ? ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: minimumSize.width,
+                  minHeight: minimumSize.height,
+                ),
+                child: IntrinsicHeight(
+                  child: IntrinsicWidth(child: nodeContent),
+                ),
+              )
             : SizedBox(
                 width: defaultWidth.clamp(
-                  widget.controller.config.minNodeWidth,
+                  minimumSize.width,
                   widget.controller.config.maxNodeWidth,
                 ),
                 child: nodeContent,
               )
         : SizedBox(
-            width: fixedSize.width,
-            height: fixedSize.height,
+            width: fixedSize.width.clamp(
+              minimumSize.width,
+              widget.controller.config.maxNodeWidth,
+            ),
+            height: fixedSize.height.clamp(
+              minimumSize.height,
+              widget.controller.config.maxNodeHeight,
+            ),
             child: nodeContent,
           );
 
@@ -830,10 +869,20 @@ class _DefaultNodeWidgetState extends State<DefaultNodeWidget> {
   void _updatePortsAndFields() {
     setState(() {
       inPorts = widget.node.ports.values
-          .where((port) => port.prototype.direction == PortDirection.input)
+          .where(
+            (port) =>
+                port.prototype.direction == PortDirection.input &&
+                port.prototype.idName !=
+                    widget.controller.config.edgeInputPortId,
+          )
           .toList();
       outPorts = widget.node.ports.values
-          .where((port) => port.prototype.direction == PortDirection.output)
+          .where(
+            (port) =>
+                port.prototype.direction == PortDirection.output &&
+                port.prototype.idName !=
+                    widget.controller.config.edgeOutputPortId,
+          )
           .toList();
 
       fields = widget.node.fields.values.toList();

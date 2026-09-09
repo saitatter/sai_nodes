@@ -385,6 +385,28 @@ class NodeEditorController with ChangeNotifier {
     );
   }
 
+  /// Returns the effective minimum size for [node], including any host
+  /// calculation required to keep visible ports and fields readable.
+  Size minimumNodeSizeFor(NodeDataModel node) {
+    final calculated = config.minimumNodeSizeBuilder?.call(
+      inputPortCount: node.ports.values
+          .where((port) => port.prototype.direction == PortDirection.input)
+          .length,
+      outputPortCount: node.ports.values
+          .where((port) => port.prototype.direction == PortDirection.output)
+          .length,
+      fieldCount: node.fields.length,
+    );
+    final minimum =
+        calculated ?? Size(config.minNodeWidth, config.minNodeHeight);
+    return Size(
+      minimum.width.clamp(config.minNodeWidth, config.maxNodeWidth).toDouble(),
+      minimum.height
+          .clamp(config.minNodeHeight, config.maxNodeHeight)
+          .toDouble(),
+    );
+  }
+
   /// Quick access to frequently used configuration properties.
 
   /// Enable or disable snapping nodes to the configured grid.
@@ -1007,9 +1029,17 @@ class NodeEditorController with ChangeNotifier {
         return;
       }
       normalizedSize = Size(
-        size.width.clamp(config.minNodeWidth, config.maxNodeWidth).toDouble(),
+        size.width
+            .clamp(
+              minimumNodeSizeFor(node).width,
+              config.maxNodeWidth,
+            )
+            .toDouble(),
         size.height
-            .clamp(config.minNodeHeight, config.maxNodeHeight)
+            .clamp(
+              minimumNodeSizeFor(node).height,
+              config.maxNodeHeight,
+            )
             .toDouble(),
       );
     }

@@ -1,3 +1,15 @@
+import 'dart:ui';
+
+/// Builds the minimum size needed by a node's visible content.
+///
+/// The editor stays generic: hosts decide how much space their port and field
+/// labels need without making the node package depend on their domain model.
+typedef NodeMinimumSizeBuilder = Size Function({
+  required int inputPortCount,
+  required int outputPortCount,
+  required int fieldCount,
+});
+
 /// A class that defines the behavior of a node editor.
 ///
 /// This class is responsible for handling the interactions and
@@ -35,6 +47,16 @@ class NodeEditorConfig {
   /// every node implementation wrap itself in a fixed-size widget.
   final double? defaultNodeWidth;
 
+  /// Optional semantic edge ports. When set, these ports remain interactive
+  /// on the node's outer edge but are omitted from the inner label columns.
+  /// This is useful for editors that have a single sequence lane in addition
+  /// to ordinary data ports.
+  final String? edgeInputPortId;
+  final String? edgeOutputPortId;
+
+  /// Optional host-provided minimum size calculation for visible content.
+  final NodeMinimumSizeBuilder? minimumNodeSizeBuilder;
+
   /// Distance from a link path at which pointer interaction is accepted.
   final double linkHitTestTolerance;
 
@@ -71,6 +93,9 @@ class NodeEditorConfig {
     this.maxNodeWidth = 1600.0,
     this.maxNodeHeight = 1200.0,
     this.defaultNodeWidth,
+    this.edgeInputPortId,
+    this.edgeOutputPortId,
+    this.minimumNodeSizeBuilder,
     this.linkHitTestTolerance = 4.0,
     this.portHitTestTolerance = 4.0,
     this.enableNodeResize = false,
@@ -118,6 +143,9 @@ class NodeEditorConfig {
     double? maxNodeWidth,
     double? maxNodeHeight,
     double? defaultNodeWidth,
+    String? edgeInputPortId,
+    String? edgeOutputPortId,
+    NodeMinimumSizeBuilder? minimumNodeSizeBuilder,
     double? linkHitTestTolerance,
     double? portHitTestTolerance,
     bool? enableNodeResize,
@@ -150,6 +178,10 @@ class NodeEditorConfig {
       maxNodeWidth: maxNodeWidth ?? this.maxNodeWidth,
       maxNodeHeight: maxNodeHeight ?? this.maxNodeHeight,
       defaultNodeWidth: defaultNodeWidth ?? this.defaultNodeWidth,
+      edgeInputPortId: edgeInputPortId ?? this.edgeInputPortId,
+      edgeOutputPortId: edgeOutputPortId ?? this.edgeOutputPortId,
+      minimumNodeSizeBuilder:
+          minimumNodeSizeBuilder ?? this.minimumNodeSizeBuilder,
       linkHitTestTolerance: linkHitTestTolerance ?? this.linkHitTestTolerance,
       portHitTestTolerance: portHitTestTolerance ?? this.portHitTestTolerance,
       enableNodeResize: enableNodeResize ?? this.enableNodeResize,

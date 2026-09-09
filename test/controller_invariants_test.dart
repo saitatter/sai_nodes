@@ -99,6 +99,37 @@ void main() {
     expect(controller.links, isEmpty);
   });
 
+  test('host minimum size prevents a node losing visible content', () {
+    final sizedController = NodeEditorController(
+      config: NodeEditorConfig(
+        enableSnapToGrid: false,
+        autoBuildGraph: false,
+        autoRunGraph: false,
+        edgeInputPortId: 'in',
+        edgeOutputPortId: 'out',
+        minimumNodeSizeBuilder: ({
+          required inputPortCount,
+          required outputPortCount,
+          required fieldCount,
+        }) =>
+            const Size(240, 180),
+      ),
+    );
+    addTearDown(sizedController.dispose);
+    sizedController.registerNodePrototype(
+      _prototype(id: 'sized', input: true, output: true),
+    );
+    final node = sizedController.addNode('sized');
+
+    sizedController.resizeNode(node.id, const Size(90, 60));
+
+    expect(node.customSize, const Size(240, 180));
+    expect(
+      sizedController.minimumNodeSizeFor(node),
+      const Size(240, 180),
+    );
+  });
+
   test('existing links cannot be inserted twice', () {
     final source = controller.addNode('source');
     final target = controller.addNode('target');
