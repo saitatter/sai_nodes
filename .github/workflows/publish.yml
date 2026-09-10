@@ -7,6 +7,31 @@ on:
 
 jobs:
   publish:
+    runs-on: ubuntu-latest
     permissions:
       id-token: write
-    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    steps:
+      - name: Check out package
+        uses: actions/checkout@v7
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # Resolve and validate before the short-lived publish token is installed.
+      # pub.dev publish tokens are not usable for public dependency resolution.
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Validate package
+        run: flutter pub publish --dry-run
+
+      - name: Set up Dart and pub.dev OIDC authentication
+        uses: dart-lang/setup-dart@v1
+
+      # Validation already ran above; skip-validation prevents pub from resolving
+      # dependencies again with the publish-only OIDC token.
+      - name: Publish to pub.dev
+        run: flutter pub publish --force --skip-validation
