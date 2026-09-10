@@ -9,6 +9,7 @@ import 'package:sai_nodes/src/core/controller/project.dart';
 import 'package:sai_nodes/src/core/controller/viewport_transform.dart';
 import 'package:sai_nodes/src/core/events/events.dart';
 import 'package:sai_nodes/src/core/utils/dsa/spatial_hash_grid.dart';
+import 'package:sai_nodes/src/core/utils/rendering/paths.dart';
 import 'package:sai_nodes/src/core/utils/rendering/renderbox.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sai_nodes/src/styles/styles.dart';
@@ -20,6 +21,7 @@ import '../events/bus.dart';
 import '../models/data.dart';
 import 'clipboard.dart';
 import 'config.dart';
+import 'hit_testing.dart';
 import 'runner.dart';
 import 'utils.dart';
 
@@ -503,6 +505,122 @@ class NodeEditorController with ChangeNotifier {
   int get linkCount => links.length;
 
   final SpatialHashGrid nodesSpatialHashGrid = SpatialHashGrid();
+
+  /// Returns the current world-space bounds of [node].
+  ///
+  /// A laid-out node uses its actual render size. Before layout is available,
+  /// the same fixed/default sizing rules as [DefaultNodeWidget] are used so
+  /// hit testing remains useful for hosts that create nodes programmatically.
+  Rect nodeWorldBounds(NodeDataModel node) {
+    final renderSize = _renderedNodeSizeForInteraction(node);
+    return node.offset & renderSize;
+  }
+
+  /// Finds the topmost node containing [worldPoint].
+  ///
+  /// [worldPoint] must already be in editor/world coordinates. Screen-to-world
+  /// conversion belongs to the host because only the host knows the pointer's
+  /// window/rendering context.
+  NodeHitResult? hitTestNode(
+    Offset worldPoint, {
+    bool Function(NodeDataModel node)? where,
+  }) {
+    final indexedIds = nodesSpatialHashGrid.queryCoords(worldPoint);
+    // The spatial index is populated after render layout. Falling back to the
+    // model collection keeps the public API correct during initial layout and
+    // in headless callers without changing the fast path for a live canvas.
+    final candidateIds = indexedIds.isEmpty ? nodes.keys : indexedIds;
+
+    for (final id in candidateIds.toList().reversed) {
+      final node = nodes[id];
+      if (node == null || where != null && !where(node)) continue;
+      final bounds = nodeWorldBounds(node);
+      if (bounds.contains(worldPoint)) {
+        return NodeHitResult(node: node, bounds: bounds);
+      }
+    }
+    return null;
+  }
+
+  /// Finds the first link whose rendered path is within [tolerance] of
+  /// [worldPoint].
+  ///
+  /// Link geometry and curve selection are owned by sai_nodes. Hosts can use
+  /// [where] for product-specific semantics, such as accepting only control
+  /// flow links for an action insertion target.
+  LinkHitResult? hitTestLink(
+    Offset worldPoint, {
+    double? tolerance,
+    bool Function(LinkDataModel link)? where,
+  }) {
+    final hitTolerance = tolerance ?? config.linkHitTestTolerance;
+
+    for (final link in linksAsList) {
+      if (where != null && !where(link)) continue;
+
+      final source = nodes[link.endpoints.sourceNodeId];
+      final target = nodes[link.endpoints.targetNodeId];
+      final sourcePort = source?.ports[link.endpoints.sourcePortId];
+      final targetPort = target?.ports[link.endpoints.targetPortId];
+      if (source == null ||
+          target == null ||
+          sourcePort == null ||
+          targetPort == null) {
+        continue;
+      }
+
+      final start = source.offset + sourcePort.offset;
+      final end = target.offset + targetPort.offset;
+      final curveType = sourcePort.style.linkStyleBuilder(link.state).curveType;
+      final distance = switch (curveType) {
+        LinkCurveType.straight => PathUtils.distanceToStraightLine(
+            worldPoint,
+            start,
+            end,
+          ),
+        LinkCurveType.ninetyDegree => PathUtils.distanceToNinetyDegrees(
+            worldPoint,
+            start,
+            end,
+          ),
+        LinkCurveType.bezier => PathUtils.distanceToBezier(
+            worldPoint,
+            start,
+            end,
+          ),
+      };
+
+      if (distance <= hitTolerance) {
+        return LinkHitResult(
+          link: link,
+          distance: distance,
+          curveType: curveType,
+        );
+      }
+    }
+    return null;
+  }
+
+  Size _renderedNodeSizeForInteraction(NodeDataModel node) {
+    RenderBox? renderBox;
+    try {
+      renderBox = node.key.currentContext?.findRenderObject() as RenderBox?;
+    } on Object {
+      renderBox = null;
+    }
+    if (renderBox != null && renderBox.hasSize && !renderBox.size.isEmpty) {
+      return renderBox.size;
+    }
+    if (node.customSize != null) return node.customSize!;
+
+    final minimum = minimumNodeSizeFor(node);
+    final width = config.defaultNodeWidth?.clamp(
+          minimum.width,
+          config.maxNodeWidth,
+        ) ??
+        minimum.width;
+    return Size(width.toDouble(), minimum.height);
+  }
 
   /// This map holds the raw nodes offsets before they are snapped to the grid.
   final Map<String, Offset> unboundNodeOffsets = {};
@@ -1113,11 +1231,11 @@ class NodeEditorController with ChangeNotifier {
 
   /// Moves a frame by a world-space delta.
   NodeFrame? moveFrame(String frameId, Offset delta) => _updateFrame(
-    frameId,
-    (frame) => frame.copyWith(
-      bounds: frame.bounds.shift(delta),
-    ),
-  );
+        frameId,
+        (frame) => frame.copyWith(
+          bounds: frame.bounds.shift(delta),
+        ),
+      );
 
   /// Moves a frame in world space and optionally moves its member nodes as one
   /// undoable operation. Member movement bypasses grid snapping because the
@@ -1157,11 +1275,11 @@ class NodeEditorController with ChangeNotifier {
 
   /// Renames a frame and records the change in editor history.
   NodeFrame? renameFrame(String frameId, String title) => _updateFrame(
-    frameId,
-    (frame) => frame.copyWith(
-      title: title.trim().isEmpty ? 'Frame' : title.trim(),
-    ),
-  );
+        frameId,
+        (frame) => frame.copyWith(
+          title: title.trim().isEmpty ? 'Frame' : title.trim(),
+        ),
+      );
 
   /// Resizes a frame from its bottom-right corner.
   NodeFrame? resizeFrame(

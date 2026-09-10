@@ -12,6 +12,8 @@ export 'package:sai_nodes/src/core/controller/clipboard.dart'
     show NodeEditorClipboardPayloadEncoder, NodeEditorClipboardPayloadDecoder;
 export 'package:sai_nodes/src/core/controller/content_revision.dart'
     show isNodeEditorContentMutation;
+export 'package:sai_nodes/src/core/controller/hit_testing.dart'
+    show NodeHitResult, LinkHitResult;
 export 'package:sai_nodes/src/core/controller/navigation.dart'
     show NodeNavigationDirection;
 export 'package:sai_nodes/src/core/controller/viewport_transform.dart'

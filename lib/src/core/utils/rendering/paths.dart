@@ -9,15 +9,17 @@ final class PathUtils {
     Offset outPortOffset,
     Offset inPortOffset,
   ) {
-    final midX = (outPortOffset.dx + inPortOffset.dx) / 2;
+    final dx = (inPortOffset.dx - outPortOffset.dx).abs();
+    const defaultOffset = 400.0;
+    final controlOffset = dx < defaultOffset * 2 ? dx / 2 : defaultOffset;
 
     // Define the cubic Bezier curve
     final curve = Path()
       ..moveTo(outPortOffset.dx, outPortOffset.dy)
       ..cubicTo(
-        midX,
+        outPortOffset.dx + controlOffset,
         outPortOffset.dy,
-        midX,
+        inPortOffset.dx - controlOffset,
         inPortOffset.dy,
         inPortOffset.dx,
         inPortOffset.dy,
