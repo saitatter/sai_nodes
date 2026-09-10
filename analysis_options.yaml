@@ -24,6 +24,9 @@ linter:
     require_trailing_commas: true
 
 analyzer:
+  exclude:
+    - "build/**"
+
   strong-mode:
     implicit-casts: true
     implicit-dynamic: true
