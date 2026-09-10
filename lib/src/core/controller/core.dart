@@ -22,6 +22,7 @@ import '../models/data.dart';
 import 'clipboard.dart';
 import 'config.dart';
 import 'hit_testing.dart';
+import 'alignment.dart';
 import 'runner.dart';
 import 'utils.dart';
 
@@ -620,6 +621,123 @@ class NodeEditorController with ChangeNotifier {
         ) ??
         minimum.width;
     return Size(width.toDouble(), minimum.height);
+  }
+
+  /// Calculates the closest horizontal and vertical alignment guides for the
+  /// first node in [dragging].
+  ///
+  /// The guide positions and threshold are in world/editor units. The
+  /// spatial index is queried in two strips so nodes can align even when they
+  /// are far apart on the perpendicular axis. Hosts only need to transform
+  /// the returned guides into their presentation model.
+  AlignmentGuideResult alignmentGuidesFor(
+    Set<String> dragging, {
+    double threshold = 6,
+  }) {
+    if (dragging.isEmpty || threshold < 0 || !threshold.isFinite) {
+      return const AlignmentGuideResult.empty();
+    }
+
+    final dragged = nodes[dragging.first];
+    if (dragged == null) return const AlignmentGuideResult.empty();
+
+    final draggedBounds = nodeWorldBounds(dragged);
+    final boundsById = <String, Rect>{
+      for (final node in nodes.values) node.id: nodeWorldBounds(node),
+    };
+    if (boundsById.isEmpty) return const AlignmentGuideResult.empty();
+
+    final allBounds = boundsById.values.skip(1).fold<Rect>(
+          boundsById.values.first,
+          (bounds, candidate) => bounds.expandToInclude(candidate),
+        );
+    final verticalStrip = Rect.fromLTRB(
+      draggedBounds.left - threshold,
+      allBounds.top - threshold,
+      draggedBounds.right + threshold,
+      allBounds.bottom + threshold,
+    );
+    final horizontalStrip = Rect.fromLTRB(
+      allBounds.left - threshold,
+      draggedBounds.top - threshold,
+      allBounds.right + threshold,
+      draggedBounds.bottom + threshold,
+    );
+    final indexedIds = <String>{
+      ...nodesSpatialHashGrid.queryArea(verticalStrip),
+      ...nodesSpatialHashGrid.queryArea(horizontalStrip),
+    };
+    final candidateIds = indexedIds.isEmpty ? boundsById.keys : indexedIds;
+
+    var bestX = threshold + 1;
+    var bestY = threshold + 1;
+    final xMatches = <(double, double)>[];
+    final yMatches = <(double, double)>[];
+
+    for (final id in candidateIds) {
+      if (dragging.contains(id)) continue;
+      final bounds = boundsById[id];
+      if (bounds == null) continue;
+
+      final xPairs = <(double, double)>[
+        (draggedBounds.left, bounds.left),
+        (draggedBounds.left, bounds.right),
+        (draggedBounds.right, bounds.left),
+        (draggedBounds.right, bounds.right),
+        (draggedBounds.center.dx, bounds.center.dx),
+      ];
+      for (final pair in xPairs) {
+        final distance = (pair.$1 - pair.$2).abs();
+        if (distance < bestX) {
+          bestX = distance;
+          xMatches
+            ..clear()
+            ..add(pair);
+        } else if (distance == bestX) {
+          xMatches.add(pair);
+        }
+      }
+
+      final yPairs = <(double, double)>[
+        (draggedBounds.top, bounds.top),
+        (draggedBounds.top, bounds.bottom),
+        (draggedBounds.bottom, bounds.top),
+        (draggedBounds.bottom, bounds.bottom),
+        (draggedBounds.center.dy, bounds.center.dy),
+      ];
+      for (final pair in yPairs) {
+        final distance = (pair.$1 - pair.$2).abs();
+        if (distance < bestY) {
+          bestY = distance;
+          yMatches
+            ..clear()
+            ..add(pair);
+        } else if (distance == bestY) {
+          yMatches.add(pair);
+        }
+      }
+    }
+
+    final guides = <AlignmentGuide>[
+      if (bestX <= threshold)
+        for (final match in xMatches)
+          AlignmentGuide(
+            axis: AlignmentGuideAxis.vertical,
+            position: match.$2,
+            from: draggedBounds.top,
+            to: draggedBounds.bottom,
+          ),
+      if (bestY <= threshold)
+        for (final match in yMatches)
+          AlignmentGuide(
+            axis: AlignmentGuideAxis.horizontal,
+            position: match.$2,
+            from: draggedBounds.left,
+            to: draggedBounds.right,
+          ),
+    ];
+
+    return AlignmentGuideResult(guides.toSet());
   }
 
   /// This map holds the raw nodes offsets before they are snapped to the grid.
