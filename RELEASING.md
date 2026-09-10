@@ -25,7 +25,7 @@ credential belongs in GitHub repository secrets.
    `flutter test`, and `flutter pub publish --dry-run` locally.
 4. Merge the version and changelog changes to `main`.
 5. Create a GitHub Release from `main`, using a new tag that matches the package
-   version, for example `v0.2.1`.
+   version, for example `v0.3.0`.
 
    Creating the tag starts the pub.dev publishing workflow. Publishing and
    archive upload are complete only after both GitHub Actions workflows pass.

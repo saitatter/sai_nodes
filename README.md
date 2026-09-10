@@ -90,7 +90,7 @@ To add **SAI Nodes** to your Flutter project, include it in your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  sai_nodes: ^0.2.2
+  sai_nodes: ^0.3.0
 ```
 
 Then, run:

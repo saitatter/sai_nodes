@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.2
+## 0.3.0
 
 - Added atomic dynamic-port reconciliation with compatible-link preservation,
   incompatible-link removal, and undo/redo support.
