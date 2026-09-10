@@ -127,8 +127,10 @@ void main() {
     expect(frame.title, 'Main path');
     expect(controller.frames['main-frame']!.members, {first.id});
 
+    controller.renameFrame('main-frame', 'Renamed path');
+    expect(controller.frames['main-frame']!.title, 'Renamed path');
     controller.addNodesToFrame('main-frame', [second.id]);
-    controller.moveFrame('main-frame', const Offset(10, 20));
+    controller.moveFrameWithMembers('main-frame', const Offset(10, 20));
     controller.resizeFrame(
       'main-frame',
       const Offset(-500, -500),
@@ -137,6 +139,8 @@ void main() {
     await _flushEvents();
     expect(controller.frames['main-frame']!.members, {first.id, second.id});
     expect(controller.frames['main-frame']!.bounds.size, const Size(120, 80));
+    expect(controller.nodes[first.id]!.offset, const Offset(10, 20));
+    expect(controller.nodes[second.id]!.offset, const Offset(210, 20));
 
     controller.removeNodesFromFrame('main-frame', [first.id]);
     await _flushEvents();
@@ -152,10 +156,17 @@ void main() {
 
     controller.history.undo();
     await _flushEvents();
-    expect(controller.frames['main-frame']!.bounds.topLeft, Offset.zero);
+    expect(controller.nodes[first.id]!.offset, Offset.zero);
+    expect(controller.nodes[second.id]!.offset, const Offset(200, 0));
 
     controller.history.undo();
     await _flushEvents();
+    expect(controller.frames['main-frame']!.members, {first.id});
+
+    controller.history.undo();
+    await _flushEvents();
+    expect(controller.frames['main-frame']!.title, 'Main path');
+
     controller.history.undo();
     await _flushEvents();
     expect(controller.frames['main-frame'], isNull);

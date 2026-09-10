@@ -479,6 +479,8 @@ final class NodeFrameChangeEvent extends NodeEditorEvent {
     required this.frameId,
     required this.previousFrame,
     required this.nextFrame,
+    this.previousMemberOffsets = const {},
+    this.nextMemberOffsets = const {},
     required super.id,
     super.isHandled,
   }) : super(isUndoable: true);
@@ -486,6 +488,8 @@ final class NodeFrameChangeEvent extends NodeEditorEvent {
   final String frameId;
   final NodeFrame? previousFrame;
   final NodeFrame? nextFrame;
+  final Map<String, Offset> previousMemberOffsets;
+  final Map<String, Offset> nextMemberOffsets;
 
   @override
   Map<String, dynamic> toJson(Map<String, DataHandler> dataHandlers) => {
@@ -493,6 +497,14 @@ final class NodeFrameChangeEvent extends NodeEditorEvent {
         'frameId': frameId,
         if (previousFrame != null) 'previousFrame': previousFrame!.toJson(),
         if (nextFrame != null) 'nextFrame': nextFrame!.toJson(),
+        if (previousMemberOffsets.isNotEmpty)
+          'previousMemberOffsets': previousMemberOffsets.map(
+            (id, offset) => MapEntry(id, [offset.dx, offset.dy]),
+          ),
+        if (nextMemberOffsets.isNotEmpty)
+          'nextMemberOffsets': nextMemberOffsets.map(
+            (id, offset) => MapEntry(id, [offset.dx, offset.dy]),
+          ),
       };
 }
 

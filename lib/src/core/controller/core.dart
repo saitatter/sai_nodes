@@ -1006,6 +1006,7 @@ class NodeEditorController with ChangeNotifier {
   void restoreFrameSnapshot(
     String frameId,
     NodeFrame? frame, {
+    Map<String, Offset> memberOffsets = const {},
     String? eventId,
   }) {
     final previous = frames[frameId];
@@ -1013,6 +1014,16 @@ class NodeEditorController with ChangeNotifier {
       frames.remove(frameId);
     } else {
       frames[frameId] = frame;
+    }
+    for (final entry in memberOffsets.entries) {
+      final node = nodes[entry.key];
+      if (node == null) continue;
+      node.offset = entry.value;
+      unboundNodeOffsets[entry.key] = entry.value;
+    }
+    if (memberOffsets.isNotEmpty) {
+      nodesDataDirty = true;
+      linksDataDirty = true;
     }
     eventBus.emit(
       NodeFrameChangeEvent(
@@ -1102,11 +1113,55 @@ class NodeEditorController with ChangeNotifier {
 
   /// Moves a frame by a world-space delta.
   NodeFrame? moveFrame(String frameId, Offset delta) => _updateFrame(
-        frameId,
-        (frame) => frame.copyWith(
-          bounds: frame.bounds.shift(delta),
-        ),
-      );
+    frameId,
+    (frame) => frame.copyWith(
+      bounds: frame.bounds.shift(delta),
+    ),
+  );
+
+  /// Moves a frame in world space and optionally moves its member nodes as one
+  /// undoable operation. Member movement bypasses grid snapping because the
+  /// frame delta is already an explicit world-space transform.
+  NodeFrame? moveFrameWithMembers(String frameId, Offset delta) {
+    final frame = frames[frameId];
+    if (frame == null) return null;
+    final previousMemberOffsets = <String, Offset>{};
+    final nextMemberOffsets = <String, Offset>{};
+    for (final nodeId in frame.members) {
+      final node = nodes[nodeId];
+      if (node == null) continue;
+      previousMemberOffsets[nodeId] = node.offset;
+      nextMemberOffsets[nodeId] = node.offset + delta;
+    }
+    final next = frame.copyWith(bounds: frame.bounds.shift(delta));
+    if (next == frame && previousMemberOffsets.isEmpty) return frame;
+    frames[frameId] = next;
+    for (final entry in nextMemberOffsets.entries) {
+      nodes[entry.key]!.offset = entry.value;
+      unboundNodeOffsets[entry.key] = entry.value;
+    }
+    nodesDataDirty = previousMemberOffsets.isNotEmpty || nodesDataDirty;
+    linksDataDirty = previousMemberOffsets.isNotEmpty || linksDataDirty;
+    eventBus.emit(
+      NodeFrameChangeEvent(
+        frameId: frameId,
+        previousFrame: frame,
+        nextFrame: next,
+        previousMemberOffsets: previousMemberOffsets,
+        nextMemberOffsets: nextMemberOffsets,
+        id: const Uuid().v4(),
+      ),
+    );
+    return next;
+  }
+
+  /// Renames a frame and records the change in editor history.
+  NodeFrame? renameFrame(String frameId, String title) => _updateFrame(
+    frameId,
+    (frame) => frame.copyWith(
+      title: title.trim().isEmpty ? 'Frame' : title.trim(),
+    ),
+  );
 
   /// Resizes a frame from its bottom-right corner.
   NodeFrame? resizeFrame(

@@ -159,6 +159,7 @@ class NodeEditorHistoryHelper {
         controller.restoreFrameSnapshot(
           event.frameId,
           event.previousFrame,
+          memberOffsets: event.previousMemberOffsets,
           eventId: event.id,
         );
       }
@@ -241,6 +242,7 @@ class NodeEditorHistoryHelper {
         controller.restoreFrameSnapshot(
           event.frameId,
           event.nextFrame,
+          memberOffsets: event.nextMemberOffsets,
           eventId: event.id,
         );
       }
