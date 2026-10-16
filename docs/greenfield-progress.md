@@ -111,7 +111,15 @@ Next: Showrunner domain reset and integration (Phases H onward).
 
 ## Showrunner integration
 
-Showrunner still uses its pinned Git dependency and current graph format. No
-local override, saved document conversion or dual persistence was introduced.
-The domain reset starts in Phase H, after the core/editor foundation is ready.
-Automation and shader compiler execution remain Showrunner-owned.
+Showrunner integration is in progress on its migration branch using ignored
+local package overrides during development. The new automation envelope owns
+one GraphDocument, with all host settings/signatures in transactional metadata;
+there is no old-format decoder or saved-document conversion. Cutover and deletion
+of the old stacks remain required before this branch is complete.
+
+The controller now accepts a pure host document policy before resolution. Host
+entry reconciliation participates in the original transaction/undo record and
+exceptions roll back the full edit; this is covered by the 32nd core test.
+Fields explicitly placed in the inspector do not consume inline canvas rows.
+Checkpoint: 32 core tests and 89 Flutter tests passed (one benchmark skipped),
+and repository analysis passed. Automation and shader execution remain host-owned.

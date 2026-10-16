@@ -265,24 +265,34 @@ final class GraphCamera {
 }
 
 /// Synchronous single-owner authoring engine. All persistent edits commit here.
+typedef GraphDocumentPolicy =
+    GraphDocument Function(GraphDocument before, GraphDocument candidate);
+
 final class GraphController {
   GraphController({
     required GraphDocument document,
     required this.resolver,
     String? activeSpaceId,
     this.historyCapacity = 100,
+    this.documentPolicy,
   }) : _document = document,
        _activeSpaceId = activeSpaceId ?? document.spaces.keys.firstOrNull {
     if (historyCapacity < 0) {
       throw ArgumentError.value(historyCapacity, 'historyCapacity');
     }
-    _resolution = resolver.resolve(document);
+    _resolution = resolver.resolve(
+      documentPolicy?.call(document, document) ?? document,
+    );
     _document = _resolution.document;
     _rebuildIndexes();
     resolver.definitions.addListener(_definitionsChanged);
   }
   final GraphResolver resolver;
   final int historyCapacity;
+
+  /// Pure host reconciliation before resolution, included in the same history
+  /// entry. Throwing rejects the complete transaction without publishing it.
+  final GraphDocumentPolicy? documentPolicy;
   GraphDocument _document;
   late GraphResolution _resolution;
   Map<String, GraphIndexes> _indexes = {};
@@ -337,7 +347,9 @@ final class GraphController {
     final tx = GraphTransaction._(_document);
     try {
       operation(tx);
-      final result = resolver.resolve(tx.document);
+      final result = resolver.resolve(
+        documentPolicy?.call(_document, tx.document) ?? tx.document,
+      );
       final baseline = _resolution.diagnostics.map(_issueKey).toSet();
       const structural = {
         'empty-id',
@@ -591,7 +603,9 @@ final class GraphController {
 
   void replaceDocument(GraphDocument document, {bool markSaved = true}) {
     _check();
-    final resolved = resolver.resolve(document);
+    final resolved = resolver.resolve(
+      documentPolicy?.call(document, document) ?? document,
+    );
     if (!resolved.converged) {
       throw GraphMutationException('Load failed', resolved.diagnostics);
     }

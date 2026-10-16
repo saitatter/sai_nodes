@@ -62,6 +62,45 @@ GraphConnection wire(
 
 void main() {
   test(
+    'host policy commits atomically and throwing rolls back the full edit',
+    () {
+      final graph = GraphController(
+        document: GraphDocument(
+          id: 'd',
+          spaces: {'main': GraphSpace(id: 'main')},
+        ),
+        resolver: GraphResolver(
+          definitions: catalog(),
+          types: GraphTypeSystem.core(),
+        ),
+        documentPolicy: (before, next) {
+          if (next.spaces['main']!.nodes.containsKey('rejected')) {
+            throw StateError('Host rejected this edit');
+          }
+          return next.copyWith(
+            metadata: {'count': next.spaces['main']!.nodes.length},
+          );
+        },
+      );
+      addTearDown(graph.dispose);
+      var notices = 0;
+      graph.addDocumentListener((_) => notices++);
+      graph.execute(add('a'));
+      expect(graph.document.metadata['count'], 1);
+      expect(notices, 1);
+      final committed = graph.document;
+      expect(() => graph.execute(add('rejected')), throwsStateError);
+      expect(graph.document, same(committed));
+      expect(notices, 1);
+      graph.undo();
+      expect(graph.document.metadata['count'], 0);
+      expect(graph.activeSpace!.nodes, isEmpty);
+      expect(graph.isDirty, false);
+      graph.redo();
+      expect(graph.document, committed);
+    },
+  );
+  test(
     'auto-fit and containment membership are resolved in the same transaction',
     () {
       final graph = controller();

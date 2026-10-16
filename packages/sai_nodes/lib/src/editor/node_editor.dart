@@ -1352,7 +1352,7 @@ class NodeEditorState extends State<NodeEditor> with TickerProviderStateMixin {
                     ),
                   ),
                 ),
-              for (final field in node.structure?.fields ?? <ResolvedField>[])
+              for (final field in (node.structure?.fields ?? <ResolvedField>[]).where((field)=>field.metadata['placement']!='inspector'))
                 SizedBox(
                   height: _builder.nodes.fieldHeight,
                   child: Padding(
