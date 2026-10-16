@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'core-v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
   publish:
@@ -20,12 +21,33 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Select workspace package
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if [[ "$RELEASE_TAG" == core-v* ]]; then
+            echo 'PACKAGE_DIR=packages/sai_nodes_core' >> "$GITHUB_ENV"
+            expected_version="${RELEASE_TAG#core-v}"
+          else
+            echo 'PACKAGE_DIR=packages/sai_nodes' >> "$GITHUB_ENV"
+            expected_version="${RELEASE_TAG#v}"
+          fi
+          echo "EXPECTED_VERSION=$expected_version" >> "$GITHUB_ENV"
+
+      - name: Verify package version
+        shell: bash
+        run: |
+          actual_version="$(sed -n -E 's/^version:[[:space:]]*//p' "$PACKAGE_DIR/pubspec.yaml" | head -n 1 | tr -d '[:space:]')"
+          test "$actual_version" = "$EXPECTED_VERSION"
+
       # Resolve and validate before the short-lived publish token is installed.
       # pub.dev publish tokens are not usable for public dependency resolution.
       - name: Install dependencies
         run: flutter pub get
 
       - name: Validate package
+        working-directory: ${{ env.PACKAGE_DIR }}
         run: flutter pub publish --dry-run
 
       - name: Set up Dart and pub.dev OIDC authentication
@@ -34,4 +56,5 @@ jobs:
       # Validation already ran above; skip-validation prevents pub from resolving
       # dependencies again with the publish-only OIDC token.
       - name: Publish to pub.dev
+        working-directory: ${{ env.PACKAGE_DIR }}
         run: flutter pub publish --force --skip-validation

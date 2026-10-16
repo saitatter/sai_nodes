@@ -34,12 +34,14 @@ jobs:
         run: flutter analyze
 
       - name: Run tests
-        run: flutter test
-
-      - name: Validate publish archive
-        shell: bash
         run: |
-          package_dir="$(mktemp -d)"
-          git archive --format=tar HEAD | tar -x -C "$package_dir"
-          cd "$package_dir"
-          flutter pub publish --dry-run
+          (cd packages/sai_nodes_core && dart test)
+          (cd packages/sai_nodes && flutter test)
+
+  core-isolation:
+    name: Verify core without Flutter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dart-lang/setup-dart@v1
+      - run: dart tool/verify_core_isolation.dart

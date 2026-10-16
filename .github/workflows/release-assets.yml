@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   package:
-    if: startsWith(github.event.release.tag_name || inputs.tag, 'v')
+    if: startsWith(github.event.release.tag_name || inputs.tag, 'v') || startsWith(github.event.release.tag_name || inputs.tag, 'core-v')
     runs-on: ubuntu-latest
     steps:
       - name: Check out release tag
@@ -28,8 +28,14 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           set -euo pipefail
-          expected_version="${RELEASE_TAG#v}"
-          package_version="$(sed -n -E 's/^version:[[:space:]]*//p' pubspec.yaml | head -n 1 | tr -d '[:space:]"')"
+          if [[ "$RELEASE_TAG" == core-v* ]]; then
+            expected_version="${RELEASE_TAG#core-v}"
+            manifest='packages/sai_nodes_core/pubspec.yaml'
+          else
+            expected_version="${RELEASE_TAG#v}"
+            manifest='packages/sai_nodes/pubspec.yaml'
+          fi
+          package_version="$(sed -n -E 's/^version:[[:space:]]*//p' "$manifest" | head -n 1 | tr -d '[:space:]"')"
 
           if [ "$expected_version" != "$package_version" ]; then
             echo "Release tag $RELEASE_TAG does not match pubspec.yaml version $package_version."
