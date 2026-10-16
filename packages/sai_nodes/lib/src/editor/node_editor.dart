@@ -41,6 +41,8 @@ class NodeEditor extends StatefulWidget {
     super.key,
     required this.controller,
     this.nodeBuilder,
+    this.headerBuilder,
+    this.portLabelBuilder,
     this.portBuilder,
     this.fieldBuilder,
     this.frameBuilder,
@@ -61,6 +63,8 @@ class NodeEditor extends StatefulWidget {
   });
   final GraphController controller;
   final GraphNodeWidgetBuilder? nodeBuilder;
+  final GraphNodeWidgetBuilder? headerBuilder;
+  final GraphPortWidgetBuilder? portLabelBuilder;
   final GraphPortWidgetBuilder? portBuilder;
   final GraphFieldWidgetBuilder? fieldBuilder;
   final Widget Function(BuildContext, GraphFrame)? frameBuilder;
@@ -146,6 +150,8 @@ class NodeEditorState extends State<NodeEditor> with TickerProviderStateMixin {
     if (oldWidget.routing != widget.routing ||
         oldWidget.connectionLabel != widget.connectionLabel ||
         oldWidget.nodeBuilder != widget.nodeBuilder ||
+        oldWidget.headerBuilder != widget.headerBuilder ||
+        oldWidget.portLabelBuilder != widget.portLabelBuilder ||
         oldWidget.fieldBuilder != widget.fieldBuilder) {
       _scene = null;
       _contents.clear();
@@ -1306,16 +1312,18 @@ class NodeEditorState extends State<NodeEditor> with TickerProviderStateMixin {
                 ),
               ),
               alignment: Alignment.centerLeft,
-              child: Text(
-                node.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: theme.text,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              child:
+                  widget.headerBuilder?.call(context, node) ??
+                  Text(
+                    node.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: theme.text,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
             ),
             if (!node.presentation.collapsed) ...[
               for (var row = 0; row < rows; row++)
@@ -1326,33 +1334,54 @@ class NodeEditorState extends State<NodeEditor> with TickerProviderStateMixin {
                     child: Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            row < inputs.length ? inputs[row].label : '',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: theme.text.withValues(alpha: .8),
-                              fontSize: 11,
-                            ),
-                          ),
+                          child:
+                              row < inputs.length &&
+                                  widget.portLabelBuilder != null
+                              ? widget.portLabelBuilder!(
+                                  context,
+                                  node,
+                                  inputs[row],
+                                )
+                              : Text(
+                                  row < inputs.length ? inputs[row].label : '',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: theme.text.withValues(alpha: .8),
+                                    fontSize: 11,
+                                  ),
+                                ),
                         ),
                         Expanded(
-                          child: Text(
-                            row < outputs.length ? outputs[row].label : '',
-                            textAlign: TextAlign.right,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: theme.text.withValues(alpha: .8),
-                              fontSize: 11,
-                            ),
-                          ),
+                          child:
+                              row < outputs.length &&
+                                  widget.portLabelBuilder != null
+                              ? widget.portLabelBuilder!(
+                                  context,
+                                  node,
+                                  outputs[row],
+                                )
+                              : Text(
+                                  row < outputs.length
+                                      ? outputs[row].label
+                                      : '',
+                                  textAlign: TextAlign.right,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: theme.text.withValues(alpha: .8),
+                                    fontSize: 11,
+                                  ),
+                                ),
                         ),
                       ],
                     ),
                   ),
                 ),
-              for (final field in (node.structure?.fields ?? <ResolvedField>[]).where((field)=>field.metadata['placement']!='inspector'))
+              for (final field
+                  in (node.structure?.fields ?? <ResolvedField>[]).where(
+                    (field) => field.metadata['placement'] != 'inspector',
+                  ))
                 SizedBox(
                   height: _builder.nodes.fieldHeight,
                   child: Padding(

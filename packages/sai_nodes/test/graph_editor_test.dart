@@ -102,6 +102,45 @@ Future<void> mount(
 
 void main() {
   testWidgets(
+    'host headers and typed port labels reuse default geometry and cached bodies',
+    (tester) async {
+      final graph = fixture();
+      addTearDown(graph.dispose);
+      var headers = 0, labels = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NodeEditor(
+            controller: graph,
+            headerBuilder: (context, node) {
+              headers++;
+              return Text('Header ${node.node.id}');
+            },
+            portLabelBuilder: (context, node, port) {
+              labels++;
+              return Text('${port.direction.name} ${port.dataType}');
+            },
+          ),
+        ),
+      );
+      expect(find.text('Header a'), findsOneWidget);
+      final before = (headers, labels);
+      final scene = GraphSceneBuilder().build(graph);
+      final anchor = scene.nodes['a']!.geometry.ports['value.out']!;
+      expect(
+        tester.getCenter(find.byKey(const ValueKey('port:a:value.out'))).dx,
+        closeTo(anchor.x, 1),
+      );
+      graph.setCamera(const GraphCamera(offset: GraphPoint(20, 30)));
+      await tester.pump();
+      expect((headers, labels), before);
+      expect(
+        tester.getCenter(find.byKey(const ValueKey('port:a:value.out'))).dx,
+        closeTo(anchor.x + 20, 1),
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  testWidgets(
     'edge auto-scroll keeps a node drag active and coalesces its history',
     (tester) async {
       final graph = fixture();
