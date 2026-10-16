@@ -46,17 +46,25 @@ Verification:
 - Workspace analysis: no issues.
 - Formatting checked for all package and tooling Dart sources.
 
-## Next: Phase B — definitions and resolution
+## Phase B — definitions and resolution
 
-Implement the definition registry, immutable resolved ports and fields, static
-and dynamic families, bounded fixed-point resolution, unknown definitions,
-dependency invalidation and connection validation. Invalid connections must stay
-in the document by default. A switch-style definition and non-convergence tests
-are required before marking this phase complete.
+Implemented the definition registry, immutable resolved ports and fields, static
+and dynamic families, bounded fixed-point resolution, missing definitions,
+registry invalidation and connection validation. Invalid connections stay in the
+document by default; removal is an explicit policy. Tests cover switch-style
+ports/fields, dependent passes, non-convergence, replacement, capacity and direction.
 
-Phase C then introduces the controller, atomic transactions, history and ephemeral
-selection/camera. Index updates will be published atomically with document changes
-there; the Phase A cache API does not itself mutate or publish a document.
+## Phase C — editing engine
+
+Implemented pure commands for nodes, connections, spaces, frames, comments and
+presentation; atomic transactions with rollback; synchronous document changes and
+indexes; bounded snapshot history with coalescing; saved revision tracking;
+semantic/presentation revision separation; ephemeral selection/camera; typed
+clipboard fragments and compound paste, duplication, deletion, frame movement,
+disconnect and splice operations. Tests cover rollback, undo/redo, saved barriers,
+new IDs and failure atomicity. Core suite: 29 tests at this checkpoint.
+
+Next is the Flutter scene/rendering layer and interaction shell (Phase D).
 
 ## Showrunner integration
 
