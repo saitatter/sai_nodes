@@ -27,7 +27,11 @@ final class NodeGeometryEngine {
         .where((port) => port.direction == GraphPortDirection.output)
         .toList();
     final rows = math.max(inputs.length, outputs.length);
-    final fields = structure?.fields.where((field)=>field.metadata['placement']!='inspector').length ?? 0;
+    final fields =
+        structure?.fields
+            .where((field) => field.metadata['placement'] != 'inspector')
+            .length ??
+        0;
     final width = view.size?.width ?? defaultWidth;
     final height = view.collapsed
         ? headerHeight

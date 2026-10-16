@@ -328,6 +328,29 @@ final class NodeDefinitionRegistry implements NodeDefinitionLookup {
     if (_definitions.remove(type) != null) _changed();
   }
 
+  /// Atomically swaps a host catalog and publishes one resolution invalidation.
+  void replaceAll(Iterable<NodeDefinition> definitions) {
+    final next = <String, NodeDefinition>{};
+    for (final definition in definitions) {
+      if (definition.type.isEmpty || next.containsKey(definition.type)) {
+        throw ArgumentError(
+          'Invalid or duplicate definition: ${definition.type}',
+        );
+      }
+      next[definition.type] = definition;
+    }
+    if (_definitions.length == next.length &&
+        next.entries.every(
+          (entry) => identical(_definitions[entry.key], entry.value),
+        )) {
+      return;
+    }
+    _definitions
+      ..clear()
+      ..addAll(next);
+    _changed();
+  }
+
   void invalidate() => _changed();
   void addListener(void Function() listener) => _listeners.add(listener);
   void removeListener(void Function() listener) => _listeners.remove(listener);

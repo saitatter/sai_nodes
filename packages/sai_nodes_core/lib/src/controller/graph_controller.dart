@@ -549,9 +549,19 @@ final class GraphController {
     _notify();
   }
 
-  void markSaved() {
+  void markSaved({int? revision}) {
     _check();
-    _savedRevision = _revision;
+    if (revision != null && (revision < 0 || revision > _sequence)) {
+      throw ArgumentError.value(revision, 'revision');
+    }
+    _savedRevision = revision ?? _revision;
+    _notify();
+  }
+
+  /// A newly created, unsaved resource has no saved revision yet.
+  void markUnsaved() {
+    _check();
+    _savedRevision = -1;
     _notify();
   }
 

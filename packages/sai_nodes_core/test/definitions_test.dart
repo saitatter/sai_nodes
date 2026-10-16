@@ -17,6 +17,30 @@ ResolvedPort port(
 
 void main() {
   test(
+    'catalog replacement validates first and publishes one invalidation',
+    () {
+      final registry = NodeDefinitionRegistry();
+      var notices = 0;
+      registry.addListener(() => notices++);
+      final definitions = [
+        for (var i = 0; i < 100; i++)
+          DeclarativeNodeDefinition(type: 'node.$i', displayName: '$i'),
+      ];
+      registry.replaceAll(definitions);
+      expect(notices, 1);
+      registry.replaceAll(definitions);
+      expect(notices, 1);
+      expect(
+        () => registry.replaceAll([definitions.first, definitions.first]),
+        throwsArgumentError,
+      );
+      expect(registry.definitions.length, 100);
+      expect(notices, 1);
+      registry.replaceAll([]);
+      expect(notices, 2);
+    },
+  );
+  test(
     'dependency tracking reuses unrelated structures and matches fresh resolution',
     () {
       final calls = <String, int>{};

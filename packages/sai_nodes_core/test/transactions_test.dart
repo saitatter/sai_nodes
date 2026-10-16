@@ -62,6 +62,24 @@ GraphConnection wire(
 
 void main() {
   test(
+    'an asynchronous save marks its captured revision and preserves later edits',
+    () {
+      final graph = controller();
+      addTearDown(graph.dispose);
+      graph.markUnsaved();
+      expect(graph.isDirty, true);
+      graph.execute(add('a'));
+      final savingRevision = graph.revision;
+      graph.execute(add('b'));
+      graph.markSaved(revision: savingRevision);
+      expect(graph.isDirty, true);
+      graph.undo();
+      expect(graph.isDirty, false);
+      graph.redo();
+      expect(graph.isDirty, true);
+    },
+  );
+  test(
     'host policy commits atomically and throwing rolls back the full edit',
     () {
       final graph = GraphController(
