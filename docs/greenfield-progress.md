@@ -123,3 +123,11 @@ exceptions roll back the full edit; this is covered by the 32nd core test.
 Fields explicitly placed in the inspector do not consume inline canvas rows.
 Checkpoint: 32 core tests and 89 Flutter tests passed (one benchmark skipped),
 and repository analysis passed. Automation and shader execution remain host-owned.
+
+The shared canvas now delegates capture/paste/duplicate to optional host hooks.
+Clipboard transactions support host dependency preparation and semantic reference
+remapping in the same undo record. IDs are reserved across every document space.
+Asynchronous clipboard reads/cuts cannot target a controller switched during the
+operation. Verification: 36 core tests, 92 Flutter tests passed, one optional
+benchmark skipped; analysis passed. Host graph headers and typed port labels
+also reuse the generic geometry and cached node bodies.

@@ -62,6 +62,68 @@ GraphConnection wire(
 
 void main() {
   test(
+    'host paste preparation and data remapping commit and undo atomically',
+    () {
+      final graph = controller();
+      addTearDown(graph.dispose);
+      graph.execute(add('source'));
+      graph.select(GraphSelection(nodes: {'source'}));
+      final fragment = GraphFragment.capture(graph);
+      final before = graph.document;
+      graph.pasteGraphFragment(
+        fragment,
+        idFactory: () => 'copied',
+        transformRemapped: (prepared, ids) => prepared.copyWith(
+          nodes: {
+            'copied': prepared.nodes['copied']!.copyWith(
+              data: {'origin': ids['source']},
+            ),
+          },
+        ),
+        prepareTransaction: (tx) =>
+            tx.execute(UpdateDocumentMetadataCommand({'dependency': 'added'})),
+      );
+      expect(graph.activeSpace!.nodes['copied']!.data['origin'], 'copied');
+      expect(graph.document.metadata['dependency'], 'added');
+      graph.undo();
+      expect(graph.document, before);
+      expect(
+        () => graph.pasteGraphFragment(
+          fragment,
+          prepareTransaction: (tx) {
+            tx.execute(UpdateDocumentMetadataCommand({'partial': true}));
+            throw StateError('Host rejected dependency');
+          },
+        ),
+        throwsStateError,
+      );
+      expect(graph.document, before);
+    },
+  );
+  test('paste reserves entity IDs in every space', () {
+    final graph = controller();
+    addTearDown(graph.dispose);
+    graph.execute(add('source'));
+    graph.execute(
+      AddSpaceCommand(
+        GraphSpace(
+          id: 'other',
+          nodes: {'reserved': GraphNode(id: 'reserved', type: 'number')},
+        ),
+      ),
+    );
+    graph.select(GraphSelection(nodes: {'source'}));
+    final before = graph.document;
+    expect(
+      () => graph.pasteGraphFragment(
+        GraphFragment.capture(graph),
+        idFactory: () => 'reserved',
+      ),
+      throwsStateError,
+    );
+    expect(graph.document, before);
+  });
+  test(
     'an asynchronous save marks its captured revision and preserves later edits',
     () {
       final graph = controller();

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -101,6 +102,91 @@ Future<void> mount(
 }
 
 void main() {
+  testWidgets(
+    'pending clipboard reads cannot paste into a switched controller',
+    (tester) async {
+      final first = fixture(), second = fixture();
+      addTearDown(first.dispose);
+      addTearDown(second.dispose);
+      first.select(GraphSelection(nodes: {'a'}));
+      final encoded = GraphFragment.capture(first).encode();
+      final read = Completer<void>();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.getData') {
+            await read.future;
+            return {'text': encoded};
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      Widget canvas(GraphController graph) => MaterialApp(
+        home: Scaffold(
+          body: NodeEditor(key: const ValueKey('canvas'), controller: graph),
+        ),
+      );
+      await tester.pumpWidget(canvas(first));
+      await tester.tapAt(const Offset(600, 400));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpWidget(canvas(second));
+      final count = second.activeSpace!.nodes.length;
+      read.complete();
+      await tester.pump();
+      expect(second.activeSpace!.nodes.length, count);
+      expect(second.canUndo, false);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  testWidgets(
+    'duplicate shortcut delegates host dependency capture and paste',
+    (tester) async {
+      final graph = fixture();
+      addTearDown(graph.dispose);
+      var captured = 0, pasted = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: NodeEditor(
+              controller: graph,
+              captureFragment: () {
+                captured++;
+                return GraphFragment.capture(
+                  graph,
+                  hostPayload: {'dependency': 'fixture'},
+                );
+              },
+              pasteFragment: (fragment) {
+                pasted++;
+                expect(fragment.hostPayload['dependency'], 'fixture');
+                graph.pasteGraphFragment(fragment);
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.tapAt(const Offset(600, 400));
+      graph.select(GraphSelection(nodes: {'a'}));
+      final count = graph.activeSpace!.nodes.length;
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyD);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      expect(captured, 1);
+      expect(pasted, 1);
+      expect(graph.activeSpace!.nodes.length, count + 1);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   testWidgets(
     'host headers and typed port labels reuse default geometry and cached bodies',
     (tester) async {

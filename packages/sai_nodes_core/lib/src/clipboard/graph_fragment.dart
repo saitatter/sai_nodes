@@ -182,15 +182,20 @@ extension GraphEditingOperations on GraphController {
     GraphPoint offset = const GraphPoint(24, 24),
     GraphIdFactory idFactory = newGraphId,
     GraphFragment Function(GraphFragment)? enrich,
+    GraphSpace Function(GraphSpace prepared, Map<String, String> nodeIds)?
+    transformRemapped,
+    void Function(GraphTransaction transaction)? prepareTransaction,
   }) {
     final source = (enrich?.call(fragment) ?? fragment).space;
     final sid = activeSpaceId;
     if (sid == null) throw StateError('No active space.');
     final reserved = <String>{
-      ...activeSpace!.nodes.keys,
-      ...activeSpace!.connections.keys,
-      ...activeSpace!.frames.keys,
-      ...activeSpace!.comments.keys,
+      for (final space in document.spaces.values) ...[
+        ...space.nodes.keys,
+        ...space.connections.keys,
+        ...space.frames.keys,
+        ...space.comments.keys,
+      ],
     };
     String allocate() {
       final id = idFactory();
@@ -290,10 +295,12 @@ extension GraphEditingOperations on GraphController {
           ),
       },
     );
-    execute(
-      MergeGraphSpaceCommand(sid, prepared, allowInvalid: true),
-      label: 'Paste graph fragment',
-    );
+    final transformed =
+        transformRemapped?.call(prepared, Map.unmodifiable(nodes)) ?? prepared;
+    transaction((tx) {
+      prepareTransaction?.call(tx);
+      tx.execute(MergeGraphSpaceCommand(sid, transformed, allowInvalid: true));
+    }, label: 'Paste graph fragment');
     final result = GraphSelection(
       nodes: nodes.values,
       connections: edges.values,

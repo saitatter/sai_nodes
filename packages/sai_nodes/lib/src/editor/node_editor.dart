@@ -60,6 +60,8 @@ class NodeEditor extends StatefulWidget {
     this.snapToGrid = false,
     this.gridSize = 24,
     this.connectionLabel,
+    this.captureFragment,
+    this.pasteFragment,
   });
   final GraphController controller;
   final GraphNodeWidgetBuilder? nodeBuilder;
@@ -80,6 +82,10 @@ class NodeEditor extends StatefulWidget {
   final bool virtualize, showMinimap, snapToGrid;
   final double overscan, gridSize;
   final String? Function(GraphConnection)? connectionLabel;
+
+  /// Host payload and dependency handling shared by shortcuts and context menus.
+  final GraphFragment Function()? captureFragment;
+  final void Function(GraphFragment fragment)? pasteFragment;
   @override
   State<NodeEditor> createState() => NodeEditorState();
 }
@@ -827,7 +833,7 @@ class NodeEditorState extends State<NodeEditor> with TickerProviderStateMixin {
       return KeyEventResult.handled;
     }
     if (modifier && key == LogicalKeyboardKey.keyD) {
-      _perform(() => controller.duplicateSelection());
+      _perform(() => _pasteFragment(_captureFragment()));
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.delete ||
@@ -874,15 +880,15 @@ class NodeEditorState extends State<NodeEditor> with TickerProviderStateMixin {
   }
 
   Future<void> _copy({bool cut = false}) async {
+    final target = controller;
     final selected = controller.selection,
         revision = controller.revision,
         sid = controller.activeSpaceId;
     try {
-      await Clipboard.setData(
-        ClipboardData(text: GraphFragment.capture(controller).encode()),
-      );
+      await Clipboard.setData(ClipboardData(text: _captureFragment().encode()));
       if (cut &&
           mounted &&
+          identical(controller, target) &&
           controller.activeSpaceId == sid &&
           controller.revision == revision) {
         _perform(() => controller.deleteSelection(selected: selected));
@@ -893,11 +899,29 @@ class NodeEditorState extends State<NodeEditor> with TickerProviderStateMixin {
   }
 
   Future<void> _paste() async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (!mounted || data?.text == null) return;
-    _perform(
-      () => controller.pasteGraphFragment(GraphFragment.decode(data!.text!)),
-    );
+    final target = controller, spaceId = controller.activeSpaceId;
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (!mounted ||
+          !identical(controller, target) ||
+          controller.activeSpaceId != spaceId ||
+          data?.text == null) {
+        return;
+      }
+      _perform(() => _pasteFragment(GraphFragment.decode(data!.text!)));
+    } catch (error) {
+      if (mounted) _perform(() => throw StateError('Clipboard failed: $error'));
+    }
+  }
+
+  GraphFragment _captureFragment() =>
+      widget.captureFragment?.call() ?? GraphFragment.capture(controller);
+  void _pasteFragment(GraphFragment fragment) {
+    if (widget.pasteFragment case final paste?) {
+      paste(fragment);
+    } else {
+      controller.pasteGraphFragment(fragment);
+    }
   }
 
   void focusSelection() => controller.focusNodes(
@@ -1194,9 +1218,7 @@ class NodeEditorState extends State<NodeEditor> with TickerProviderStateMixin {
           ),
         );
       case 'copy':
-        await Clipboard.setData(
-          ClipboardData(text: GraphFragment.capture(controller).encode()),
-        );
+        await _copy();
       case 'paste':
         await _paste();
       case 'frame':
