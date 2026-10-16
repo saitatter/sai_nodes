@@ -115,3 +115,7 @@ export 'package:sai_nodes/src/widgets/builders.dart'
         NodeResizeBuilder;
 export 'package:sai_nodes/src/widgets/node_editor_shortcuts.dart';
 export 'package:sai_nodes/src/widgets/node_editor_toolbar.dart';
+export 'package:sai_nodes_core/sai_nodes_core.dart';
+export 'src/editor/node_editor.dart';
+export 'src/scene/graph_scene.dart';
+export 'src/theme/graph_editor_theme.dart';

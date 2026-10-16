@@ -9,6 +9,11 @@ import '../model/graph_document.dart';
 import '../model/immutable_json.dart';
 
 typedef GraphIdFactory = String Function();
+
+enum GraphNodeAlignment { left, center, right, top, middle, bottom }
+
+enum GraphDistributionAxis { horizontal, vertical }
+
 final _random = Random.secure();
 String newGraphId() => List.generate(
   16,
@@ -103,6 +108,75 @@ final class GraphFragment {
 
 /// Generic compound operations. Each helper uses the same transaction history.
 extension GraphEditingOperations on GraphController {
+  void alignSelection(
+    GraphNodeAlignment alignment,
+    Map<String, GraphRect> bounds,
+  ) {
+    final sid = activeSpaceId;
+    if (sid == null) return;
+    final ids = selection.nodes.where(bounds.containsKey).toList();
+    if (ids.length < 2) return;
+    final union = ids.map((id) => bounds[id]!).reduce((a, b) => a.union(b));
+    final positions = <String, GraphPoint>{};
+    for (final id in ids) {
+      final rect = bounds[id]!;
+      positions[id] = switch (alignment) {
+        GraphNodeAlignment.left => GraphPoint(union.left, rect.top),
+        GraphNodeAlignment.center => GraphPoint(
+          union.center.x - rect.width / 2,
+          rect.top,
+        ),
+        GraphNodeAlignment.right => GraphPoint(
+          union.right - rect.width,
+          rect.top,
+        ),
+        GraphNodeAlignment.top => GraphPoint(rect.left, union.top),
+        GraphNodeAlignment.middle => GraphPoint(
+          rect.left,
+          union.center.y - rect.height / 2,
+        ),
+        GraphNodeAlignment.bottom => GraphPoint(
+          rect.left,
+          union.bottom - rect.height,
+        ),
+      };
+    }
+    execute(MoveNodesCommand(sid, positions), label: 'Align nodes');
+  }
+
+  void distributeSelection(
+    GraphDistributionAxis axis,
+    Map<String, GraphRect> bounds,
+  ) {
+    final sid = activeSpaceId;
+    if (sid == null) return;
+    final horizontal = axis == GraphDistributionAxis.horizontal;
+    final ids = selection.nodes.where(bounds.containsKey).toList()
+      ..sort(
+        (a, b) => (horizontal ? bounds[a]!.left : bounds[a]!.top).compareTo(
+          horizontal ? bounds[b]!.left : bounds[b]!.top,
+        ),
+      );
+    if (ids.length < 3) return;
+    final first = bounds[ids.first]!, last = bounds[ids.last]!;
+    final start = horizontal ? first.left : first.top,
+        end = horizontal ? last.right : last.bottom;
+    final total = ids
+        .map((id) => horizontal ? bounds[id]!.width : bounds[id]!.height)
+        .fold(0.0, (a, b) => a + b);
+    final gap = (end - start - total) / (ids.length - 1);
+    var cursor = start;
+    final positions = <String, GraphPoint>{};
+    for (final id in ids) {
+      final rect = bounds[id]!;
+      positions[id] = horizontal
+          ? GraphPoint(cursor, rect.top)
+          : GraphPoint(rect.left, cursor);
+      cursor += (horizontal ? rect.width : rect.height) + gap;
+    }
+    execute(MoveNodesCommand(sid, positions), label: 'Distribute nodes');
+  }
+
   GraphSelection pasteGraphFragment(
     GraphFragment fragment, {
     GraphPoint offset = const GraphPoint(24, 24),
@@ -112,113 +186,114 @@ extension GraphEditingOperations on GraphController {
     final source = (enrich?.call(fragment) ?? fragment).space;
     final sid = activeSpaceId;
     if (sid == null) throw StateError('No active space.');
-    final nodes = {for (final id in source.nodes.keys) id: idFactory()};
-    final edges = {for (final id in source.connections.keys) id: idFactory()};
-    final frames = {for (final id in source.frames.keys) id: idFactory()};
-    final comments = {for (final id in source.comments.keys) id: idFactory()};
-    transaction((tx) {
-      for (final entry in source.nodes.entries) {
-        final node = entry.value, view = source.nodePresentations[entry.key];
-        tx.execute(
-          AddNodeCommand(
-            sid,
-            GraphNode(
-              id: nodes[entry.key]!,
-              type: node.type,
-              data: node.data,
-              metadata: node.metadata,
-            ),
-            presentation: NodePresentation(
-              nodeId: nodes[entry.key]!,
-              position: (view?.position ?? GraphPoint.zero) + offset,
-              size: view?.size,
-              title: view?.title,
-              collapsed: view?.collapsed ?? false,
-              metadata: view?.metadata ?? {},
-            ),
-          ),
+    final reserved = <String>{
+      ...activeSpace!.nodes.keys,
+      ...activeSpace!.connections.keys,
+      ...activeSpace!.frames.keys,
+      ...activeSpace!.comments.keys,
+    };
+    String allocate() {
+      final id = idFactory();
+      if (id.isEmpty || !reserved.add(id)) {
+        throw StateError('ID factory must allocate unique, fresh IDs.');
+      }
+      return id;
+    }
+
+    final nodes = {for (final id in source.nodes.keys) id: allocate()};
+    final edges = {for (final id in source.connections.keys) id: allocate()};
+    final frames = {for (final id in source.frames.keys) id: allocate()};
+    final comments = {for (final id in source.comments.keys) id: allocate()};
+    for (final edge in source.connections.values) {
+      if (!nodes.containsKey(edge.from.nodeId) ||
+          !nodes.containsKey(edge.to.nodeId)) {
+        throw const FormatException(
+          'Fragment contains an external connection endpoint.',
         );
       }
-      for (final entry in source.connections.entries) {
-        final edge = entry.value;
-        if (!nodes.containsKey(edge.from.nodeId) ||
-            !nodes.containsKey(edge.to.nodeId)) {
-          throw const FormatException(
-            'Fragment contains an external connection endpoint.',
-          );
-        }
-        final id = edges[entry.key]!;
-        tx.execute(
-          AddConnectionCommand(
-            sid,
-            GraphConnection(
-              id: id,
-              from: PortRef(
-                nodeId: nodes[edge.from.nodeId]!,
-                portId: edge.from.portId,
-              ),
-              to: PortRef(
-                nodeId: nodes[edge.to.nodeId]!,
-                portId: edge.to.portId,
-              ),
-              kind: edge.kind,
-              data: edge.data,
-            ),
-            allowInvalid: true,
+    }
+    final prepared = GraphSpace(
+      id: 'fragment',
+      nodes: {
+        for (final entry in source.nodes.entries)
+          nodes[entry.key]!: GraphNode(
+            id: nodes[entry.key]!,
+            type: entry.value.type,
+            data: entry.value.data,
+            metadata: entry.value.metadata,
           ),
-        );
-        final view = source.connectionPresentations[entry.key];
-        if (view != null) {
-          tx.execute(
-            UpdateConnectionPresentationCommand(
-              sid,
-              ConnectionPresentation(
-                connectionId: id,
-                waypoints: view.waypoints
-                    .map((point) => point + offset)
-                    .toList(),
-                label: view.label,
-                labelOffset: view.labelOffset,
-                metadata: view.metadata,
-              ),
-            ),
-          );
-        }
-      }
-      for (final entry in source.frames.entries) {
-        final frame = entry.value;
-        tx.execute(
-          CreateFrameCommand(
-            sid,
-            GraphFrame(
-              id: frames[entry.key]!,
-              bounds: frame.bounds.translate(offset),
-              title: frame.title,
-              memberNodeIds: frame.memberNodeIds
-                  .map((id) => nodes[id])
-                  .whereType<String>()
-                  .toSet(),
-              autoFit: frame.autoFit,
-              metadata: frame.metadata,
-            ),
+      },
+      nodePresentations: {
+        for (final entry in source.nodes.entries)
+          nodes[entry.key]!: NodePresentation(
+            nodeId: nodes[entry.key]!,
+            position:
+                (source.nodePresentations[entry.key]?.position ??
+                    GraphPoint.zero) +
+                offset,
+            size: source.nodePresentations[entry.key]?.size,
+            title: source.nodePresentations[entry.key]?.title,
+            collapsed: source.nodePresentations[entry.key]?.collapsed ?? false,
+            metadata: source.nodePresentations[entry.key]?.metadata ?? {},
           ),
-        );
-      }
-      for (final entry in source.comments.entries) {
-        final comment = entry.value;
-        tx.execute(
-          CreateCommentCommand(
-            sid,
-            GraphComment(
-              id: comments[entry.key]!,
-              bounds: comment.bounds.translate(offset),
-              text: comment.text,
-              metadata: comment.metadata,
+      },
+      connections: {
+        for (final entry in source.connections.entries)
+          edges[entry.key]!: GraphConnection(
+            id: edges[entry.key]!,
+            from: PortRef(
+              nodeId: nodes[entry.value.from.nodeId]!,
+              portId: entry.value.from.portId,
             ),
+            to: PortRef(
+              nodeId: nodes[entry.value.to.nodeId]!,
+              portId: entry.value.to.portId,
+            ),
+            kind: entry.value.kind,
+            data: entry.value.data,
           ),
-        );
-      }
-    }, label: 'Paste graph fragment');
+      },
+      connectionPresentations: {
+        for (final entry in source.connectionPresentations.entries)
+          if (edges.containsKey(entry.key))
+            edges[entry.key]!: ConnectionPresentation(
+              connectionId: edges[entry.key]!,
+              waypoints: entry.value.waypoints
+                  .map((point) => point + offset)
+                  .toList(),
+              label: entry.value.label,
+              labelOffset: entry.value.labelOffset,
+              metadata: entry.value.metadata,
+            ),
+      },
+      frames: {
+        for (final entry in source.frames.entries)
+          frames[entry.key]!: GraphFrame(
+            id: frames[entry.key]!,
+            bounds: entry.value.bounds.translate(offset),
+            title: entry.value.title,
+            memberNodeIds: entry.value.memberNodeIds
+                .map((id) => nodes[id])
+                .whereType<String>()
+                .toSet(),
+            autoFit: entry.value.autoFit,
+            metadata: entry.value.metadata,
+          ),
+      },
+      comments: {
+        for (final entry in source.comments.entries)
+          comments[entry.key]!: GraphComment(
+            id: comments[entry.key]!,
+            bounds: entry.value.bounds.translate(offset),
+            text: entry.value.text,
+            metadata: entry.value.metadata,
+          ),
+      },
+    );
+    execute(
+      MergeGraphSpaceCommand(sid, prepared, allowInvalid: true),
+      label: 'Paste graph fragment',
+    );
     final result = GraphSelection(
       nodes: nodes.values,
       connections: edges.values,
@@ -237,17 +312,17 @@ extension GraphEditingOperations on GraphController {
     offset: offset,
     idFactory: idFactory,
   );
-  void deleteSelection() {
+  void deleteSelection({GraphSelection? selected}) {
     final sid = activeSpaceId;
     if (sid == null) return;
-    final selected = selection;
+    final target = selected ?? selection;
     transaction((tx) {
-      tx.execute(RemoveNodesCommand(sid, selected.nodes));
-      tx.execute(RemoveConnectionsCommand(sid, selected.connections));
-      for (final id in selected.frames) {
+      tx.execute(RemoveNodesCommand(sid, target.nodes));
+      tx.execute(RemoveConnectionsCommand(sid, target.connections));
+      for (final id in target.frames) {
         tx.execute(RemoveFrameCommand(sid, id));
       }
-      for (final id in selected.comments) {
+      for (final id in target.comments) {
         tx.execute(RemoveCommentCommand(sid, id));
       }
     }, label: 'Delete selection');

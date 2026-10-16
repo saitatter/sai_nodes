@@ -37,6 +37,7 @@ jobs:
         run: |
           (cd packages/sai_nodes_core && dart test)
           (cd packages/sai_nodes && flutter test)
+          (cd example && flutter test)
 
   core-isolation:
     name: Verify core without Flutter

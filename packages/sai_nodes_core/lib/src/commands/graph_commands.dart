@@ -20,6 +20,45 @@ abstract base class SpaceCommand implements GraphCommand {
   }
 }
 
+/// Adds an already-remapped fragment with one map copy per entity collection.
+final class MergeGraphSpaceCommand extends SpaceCommand {
+  const MergeGraphSpaceCommand(
+    super.spaceId,
+    this.fragment, {
+    this.allowInvalid = false,
+  });
+  final GraphSpace fragment;
+  final bool allowInvalid;
+  @override
+  GraphSpace transform(GraphSpace space) {
+    void unique(Iterable<String> existing, Iterable<String> added) {
+      final ids = existing.toSet();
+      for (final id in added) {
+        if (ids.contains(id)) throw StateError('Duplicate graph entity: $id');
+      }
+    }
+
+    unique(space.nodes.keys, fragment.nodes.keys);
+    unique(space.connections.keys, fragment.connections.keys);
+    unique(space.frames.keys, fragment.frames.keys);
+    unique(space.comments.keys, fragment.comments.keys);
+    return space.copyWith(
+      nodes: {...space.nodes, ...fragment.nodes},
+      connections: {...space.connections, ...fragment.connections},
+      nodePresentations: {
+        ...space.nodePresentations,
+        ...fragment.nodePresentations,
+      },
+      connectionPresentations: {
+        ...space.connectionPresentations,
+        ...fragment.connectionPresentations,
+      },
+      frames: {...space.frames, ...fragment.frames},
+      comments: {...space.comments, ...fragment.comments},
+    );
+  }
+}
+
 final class AddSpaceCommand implements GraphCommand {
   const AddSpaceCommand(this.space);
   final GraphSpace space;

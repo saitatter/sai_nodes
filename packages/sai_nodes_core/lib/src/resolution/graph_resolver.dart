@@ -2,10 +2,35 @@ import 'package:collection/collection.dart';
 import '../definitions/node_definition.dart';
 import '../diagnostics/graph_diagnostic.dart';
 import '../indexing/graph_indexes.dart';
+import '../geometry/node_geometry.dart';
+import '../geometry/geometry.dart';
 import '../model/graph_document.dart';
 import '../types/graph_type_system.dart';
 
 enum InvalidConnectionPolicy { preserve, remove }
+
+final class _ResolvedNodeCache {
+  const _ResolvedNodeCache(
+    this.definition,
+    this.node,
+    this.space,
+    this.document,
+    this.connections,
+    this.structures,
+    this.dependencies,
+    this.revision,
+    this.structure,
+  );
+  final NodeDefinition definition;
+  final GraphNode? node;
+  final GraphSpace? space;
+  final GraphDocument? document;
+  final Map<String, GraphConnection>? connections;
+  final Map<String, NodeStructure> structures;
+  final Set<NodeResolutionDependency> dependencies;
+  final int revision;
+  final NodeStructure structure;
+}
 
 final class GraphResolution {
   GraphResolution({
@@ -44,10 +69,15 @@ final class GraphResolver {
   final GraphTypeSystem types;
   final int maxPasses;
   final InvalidConnectionPolicy invalidConnectionPolicy;
+  final Map<(String, String), _ResolvedNodeCache> _cache = {};
+  Map<String, Map<String, NodeStructure>> _lastStructures = {};
+  String? _lastDocumentId;
 
   GraphResolution resolve(GraphDocument document) {
     var current = document;
-    var structures = <String, Map<String, NodeStructure>>{};
+    var structures = _lastDocumentId == document.id
+        ? _lastStructures
+        : <String, Map<String, NodeStructure>>{};
     var passes = 0;
     var converged = false;
     final registryRevision = definitions.revision;
@@ -55,9 +85,15 @@ final class GraphResolver {
     while (passes < maxPasses) {
       passes++;
       final next = <String, Map<String, NodeStructure>>{};
+      final sameDocuments = Map<GraphDocument, bool>.identity();
       for (final space in current.spaces.values) {
         final resolved = <String, NodeStructure>{};
-        final indexes = GraphIndexes.fromSpace(space);
+        GraphIndexes? indexes;
+        final incoming = structures[space.id] ?? <String, NodeStructure>{};
+        final sameSpaces = Map<GraphSpace, bool>.identity();
+        final sameTopologies =
+            Map<Map<String, GraphConnection>, bool>.identity();
+        final sameStructures = Map<Map<String, NodeStructure>, bool>.identity();
         for (final node in space.nodes.values) {
           final definition = definitions[node.type];
           if (definition == null) {
@@ -71,16 +107,78 @@ final class GraphResolver {
             continue;
           }
           try {
-            resolved[node.id] = definition.resolve(
-              NodeResolutionContext(
+            final cached = _cache[(space.id, node.id)];
+            final reusable =
+                cached != null &&
+                identical(cached.definition, definition) &&
+                cached.dependencies.every(
+                  (dependency) => switch (dependency) {
+                    NodeResolutionDependency.node => cached.node == node,
+                    NodeResolutionDependency.document =>
+                      sameDocuments.putIfAbsent(
+                        cached.document!,
+                        () => cached.document == current,
+                      ),
+                    NodeResolutionDependency.space => sameSpaces.putIfAbsent(
+                      cached.space!,
+                      () => cached.space == space,
+                    ),
+                    NodeResolutionDependency.topology =>
+                      sameTopologies.putIfAbsent(
+                        cached.connections!,
+                        () => const DeepCollectionEquality().equals(
+                          cached.connections,
+                          space.connections,
+                        ),
+                      ),
+                    NodeResolutionDependency.structures =>
+                      sameStructures.putIfAbsent(
+                        cached.structures,
+                        () => const DeepCollectionEquality().equals(
+                          cached.structures,
+                          incoming,
+                        ),
+                      ),
+                    NodeResolutionDependency.definitions =>
+                      cached.revision == registryRevision,
+                  },
+                );
+            if (reusable) {
+              resolved[node.id] = cached.structure;
+            } else {
+              final context = NodeResolutionContext(
                 document: current,
                 space: space,
                 node: node,
-                indexes: indexes,
+                indexes: () => indexes ??= GraphIndexes.fromSpace(space),
                 definitions: definitions,
-                structures: structures[space.id] ?? {},
-              ),
-            );
+                structures: incoming,
+              );
+              final structure = definition.resolve(context);
+              resolved[node.id] = structure;
+              final dependencies = context.dependencies;
+              _cache[(space.id, node.id)] = _ResolvedNodeCache(
+                definition,
+                dependencies.contains(NodeResolutionDependency.node)
+                    ? node
+                    : null,
+                dependencies.contains(NodeResolutionDependency.space)
+                    ? space
+                    : null,
+                dependencies.contains(NodeResolutionDependency.document)
+                    ? current
+                    : null,
+                dependencies.contains(NodeResolutionDependency.topology)
+                    ? space.connections
+                    : null,
+                dependencies.contains(NodeResolutionDependency.structures)
+                    ? incoming
+                    : const {},
+                dependencies,
+                registryRevision,
+                structure,
+              );
+            }
             failures.remove('${space.id}/${node.id}');
           } catch (error) {
             failures['${space.id}/${node.id}'] = GraphDiagnostic(
@@ -96,6 +194,9 @@ final class GraphResolver {
       }
       final same = const DeepCollectionEquality().equals(structures, next);
       structures = next;
+      final beforeFrames = current;
+      current = _resolveFrames(current, structures);
+      final framesChanged = current != beforeFrames;
       if (definitions.revision != registryRevision) {
         throw StateError('Definitions must not mutate during resolution.');
       }
@@ -119,7 +220,7 @@ final class GraphResolver {
         }
         if (removed) current = current.copyWith(spaces: spaces);
       }
-      if (same && !removed) {
+      if (same && !removed && !framesChanged) {
         converged = true;
         break;
       }
@@ -136,6 +237,13 @@ final class GraphResolver {
           entityId: current.id,
         ),
     ];
+    _cache.removeWhere(
+      (ref, _) =>
+          !current.spaces.containsKey(ref.$1) ||
+          !current.spaces[ref.$1]!.nodes.containsKey(ref.$2),
+    );
+    _lastStructures = structures;
+    _lastDocumentId = current.id;
     return GraphResolution(
       document: current,
       structures: structures,
@@ -143,6 +251,67 @@ final class GraphResolver {
       passes: passes,
       converged: converged,
     );
+  }
+
+  GraphDocument _resolveFrames(
+    GraphDocument document,
+    Map<String, Map<String, NodeStructure>> structures,
+  ) {
+    final spaces = {...document.spaces};
+    var changed = false;
+    for (final space in document.spaces.values) {
+      if (space.frames.isEmpty) continue;
+      final bounds = {
+        for (final node in space.nodes.values)
+          node.id: const NodeGeometryEngine()
+              .compute(
+                space.nodePresentations[node.id] ??
+                    NodePresentation(
+                      nodeId: node.id,
+                      position: GraphPoint.zero,
+                    ),
+                structures[space.id]?[node.id],
+              )
+              .bounds,
+      };
+      final frames = {...space.frames};
+      for (final frame in space.frames.values) {
+        var members = frame.memberNodeIds;
+        if (frame.metadata['membership'] == 'contains') {
+          members = {
+            for (final entry in bounds.entries)
+              if (frame.bounds.contains(
+                    GraphPoint(entry.value.left, entry.value.top),
+                  ) &&
+                  frame.bounds.contains(
+                    GraphPoint(entry.value.right, entry.value.bottom),
+                  ))
+                entry.key,
+          };
+        }
+        var nextBounds = frame.bounds;
+        final memberBounds = members
+            .map((id) => bounds[id])
+            .whereType<GraphRect>();
+        if (frame.autoFit && memberBounds.isNotEmpty) {
+          final configured = frame.metadata['padding'];
+          final padding =
+              configured is num && configured.isFinite && configured >= 0
+              ? configured.toDouble()
+              : 24.0;
+          nextBounds = memberBounds
+              .reduce((a, b) => a.union(b))
+              .inflate(padding);
+        }
+        final next = frame.copyWith(memberNodeIds: members, bounds: nextBounds);
+        if (next != frame) {
+          frames[frame.id] = next;
+          changed = true;
+        }
+      }
+      spaces[space.id] = space.copyWith(frames: frames);
+    }
+    return changed ? document.copyWith(spaces: spaces) : document;
   }
 
   List<GraphDiagnostic> _connections(

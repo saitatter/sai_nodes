@@ -139,13 +139,16 @@ final class NodeVisualStyle {
 
 class NodeDefinitionContext {
   const NodeDefinitionContext({
-    required this.document,
-    required this.space,
-    required this.node,
+    required this._document,
+    required this._space,
+    required this._node,
   });
-  final GraphDocument document;
-  final GraphSpace space;
-  final GraphNode node;
+  final GraphDocument _document;
+  final GraphSpace _space;
+  final GraphNode _node;
+  GraphDocument get document => _document;
+  GraphSpace get space => _space;
+  GraphNode get node => _node;
 }
 
 final class NodeVisualContext extends NodeDefinitionContext {
@@ -156,20 +159,64 @@ final class NodeVisualContext extends NodeDefinitionContext {
   });
 }
 
+enum NodeResolutionDependency {
+  node,
+  space,
+  document,
+  topology,
+  structures,
+  definitions,
+}
+
 final class NodeResolutionContext extends NodeDefinitionContext {
   NodeResolutionContext({
     required super.document,
     required super.space,
     required super.node,
-    required this.indexes,
-    required this.definitions,
+    required this._indexes,
+    required this._definitions,
     required Map<String, NodeStructure> structures,
-  }) : structures = Map.unmodifiable(structures);
-  final GraphIndexes indexes;
-  final NodeDefinitionLookup definitions;
+  }) : _structures = UnmodifiableMapView(structures);
+  final GraphIndexes Function() _indexes;
+  final NodeDefinitionLookup _definitions;
 
   /// Previous fixed-point pass, not mutable intermediate structures.
-  final Map<String, NodeStructure> structures;
+  final Map<String, NodeStructure> _structures;
+  final Set<NodeResolutionDependency> _dependencies = {};
+  Set<NodeResolutionDependency> get dependencies =>
+      Set.unmodifiable(_dependencies);
+  @override
+  GraphDocument get document {
+    _dependencies.add(NodeResolutionDependency.document);
+    return super.document;
+  }
+
+  @override
+  GraphSpace get space {
+    _dependencies.add(NodeResolutionDependency.space);
+    return super.space;
+  }
+
+  @override
+  GraphNode get node {
+    _dependencies.add(NodeResolutionDependency.node);
+    return super.node;
+  }
+
+  GraphIndexes get indexes {
+    _dependencies.add(NodeResolutionDependency.topology);
+    return _indexes();
+  }
+
+  NodeDefinitionLookup get definitions {
+    _dependencies.add(NodeResolutionDependency.definitions);
+    return _definitions;
+  }
+
+  Map<String, NodeStructure> get structures {
+    _dependencies.add(NodeResolutionDependency.structures);
+    return _structures;
+  }
 }
 
 abstract interface class NodeDefinition {
@@ -260,8 +307,11 @@ final class NodeDefinitionRegistry implements NodeDefinitionLookup {
   final Map<String, NodeDefinition> _definitions = {};
   final Set<void Function()> _listeners = {};
   int _revision = 0;
+  @override
   int get revision => _revision;
+  @override
   Map<String, NodeDefinition> get definitions => Map.unmodifiable(_definitions);
+  @override
   NodeDefinition? operator [](String type) => _definitions[type];
   void register(NodeDefinition definition, {bool replace = false}) {
     if (definition.type.isEmpty ||

@@ -64,7 +64,50 @@ clipboard fragments and compound paste, duplication, deletion, frame movement,
 disconnect and splice operations. Tests cover rollback, undo/redo, saved barriers,
 new IDs and failure atomicity. Core suite: 29 tests at this checkpoint.
 
-Next is the Flutter scene/rendering layer and interaction shell (Phase D).
+## Phases D/E — scene and interaction
+
+Implemented the new `NodeEditor` shell, immutable scene/view models, shared node
+and connection geometry, spatial indexes, grid, widget nodes, port overlay,
+straight/Bezier/orthogonal routes, arrows, labels, invalid edge styling, hover,
+selection, pan/zoom, touch pinch and trackpad events. Generic canvas behavior
+includes node movement/resizing, marquee, rerouting with stable edge IDs,
+waypoints, drop-to-create, context splice, frames/comments, auto-fit/containment,
+alignment helpers, focus-aware shortcuts and elapsed-time edge auto-scroll.
+
+Virtualization retains focused and dragged nodes. Cached widget contents and
+geometry avoid rebuilding unrelated nodes on camera or execution changes.
+The example supports Windows/web, JSON round-trip and synthetic execution replay.
+
+Checkpoint: 89 Flutter package tests passed (one opt-in benchmark skipped),
+31 pure Dart core tests passed, example test passed, and native Windows editor
+integration passed. The native target also imports the geometry/spatial tests.
+
+## Phase F — performance and tooling
+
+Deterministic benchmarks cover 100/500/1,000/3,000/5,000 nodes with five samples,
+median and p95 for core mutations/history/clipboard/resolution and Flutter scene,
+visible mounting, pan/zoom, drag updates, hit testing and minimap. Run
+`dart benchmark/core_benchmark.dart`, then opt into `graph_benchmark_test.dart`
+with `SAI_NODES_BENCHMARK=1`. Generated JSON is in `.tmp/benchmarks`.
+
+Measurements exposed an O(N²) copy of the previous structure map per context;
+contexts now use read-only views. Access-tracked dependencies support safe
+resolution reuse and are checked against fresh resolution in tests. Clipboard
+paste performs a bulk merge instead of copying growing graph maps per entity.
+Connection geometry is cached too. These are measured local improvements, not
+a claim that 5,000-node editing meets a production frame-time target; that case
+still has noticeable document-update latency. Widget-test wall-clock timings are
+not production GPU timings. API usage is documented in `docs/api.md`.
+
+## Phase G — execution visuals
+
+Generic scoped node/connection references and immutable snapshots support live,
+retained, synthetic and remote sources without executing nodes. Counts, status,
+duration, errors and animated traversals live outside the graph document. A
+separate repaint source updates execution layers; tests verify no node content
+rebuild and no document dirtying from visual updates.
+
+Next: Showrunner domain reset and integration (Phases H onward).
 
 ## Showrunner integration
 

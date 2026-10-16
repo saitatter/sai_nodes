@@ -16,6 +16,134 @@ ResolvedPort port(
 );
 
 void main() {
+  test(
+    'dependency tracking reuses unrelated structures and matches fresh resolution',
+    () {
+      final calls = <String, int>{};
+      final registry = NodeDefinitionRegistry();
+      registry.register(
+        DeclarativeNodeDefinition(
+          type: 'source',
+          displayName: 'Source',
+          ports: [
+            DynamicPortFamily((context) {
+              final node = context.node;
+              calls[node.id] = (calls[node.id] ?? 0) + 1;
+              return [
+                for (var i = 0; i < (node.data['count'] as int? ?? 1); i++)
+                  port('out:$i', GraphPortDirection.output),
+              ];
+            }),
+          ],
+        ),
+      );
+      registry.register(
+        DeclarativeNodeDefinition(
+          type: 'metadata',
+          displayName: 'Metadata',
+          ports: [
+            DynamicPortFamily(
+              (context) => [
+                port(
+                  'global:${context.document.metadata['value']}',
+                  GraphPortDirection.output,
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      registry.register(
+        DeclarativeNodeDefinition(
+          type: 'topology',
+          displayName: 'Topology',
+          ports: [
+            DynamicPortFamily(
+              (context) => [
+                port(
+                  'incoming:${context.indexes.incomingConnectionIds[context.node.id]?.length ?? 0}',
+                  GraphPortDirection.input,
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      registry.register(
+        DeclarativeNodeDefinition(
+          type: 'dependent',
+          displayName: 'Dependent',
+          ports: [
+            DynamicPortFamily(
+              (context) => context.structures['a']?.ports ?? [],
+            ),
+          ],
+        ),
+      );
+      final cached = GraphResolver(
+        definitions: registry,
+        types: GraphTypeSystem.core(),
+      );
+      var doc = GraphDocument(
+        id: 'd',
+        spaces: {
+          'main': GraphSpace(
+            id: 'main',
+            nodes: {
+              'a': GraphNode(id: 'a', type: 'source'),
+              'b': GraphNode(id: 'b', type: 'source'),
+              'm': GraphNode(id: 'm', type: 'metadata'),
+              't': GraphNode(id: 't', type: 'topology'),
+              'dep': GraphNode(id: 'dep', type: 'dependent'),
+            },
+          ),
+        },
+      );
+      cached.resolve(doc);
+      final before = {...calls};
+      doc = MoveNodesCommand('main', {
+        'a': const GraphPoint(20, 30),
+      }).apply(doc);
+      cached.resolve(doc);
+      expect(calls, before);
+      for (var iteration = 0; iteration < 12; iteration++) {
+        doc = UpdateNodeDataCommand('main', 'a', {
+          'count': iteration % 3 + 1,
+        }).apply(doc);
+        doc = UpdateDocumentMetadataCommand({'value': iteration}).apply(doc);
+        if (iteration == 3) {
+          doc = AddConnectionCommand(
+            'main',
+            GraphConnection(
+              id: 'edge',
+              from: const PortRef(nodeId: 'a', portId: 'out:0'),
+              to: const PortRef(nodeId: 't', portId: 'incoming:0'),
+              kind: GraphConnectionKind.data,
+            ),
+            allowInvalid: true,
+          ).apply(doc);
+        }
+        if (iteration == 7) {
+          doc = RemoveConnectionsCommand('main', {'edge'}).apply(doc);
+        }
+        final result = cached.resolve(doc);
+        final fresh = GraphResolver(
+          definitions: registry,
+          types: GraphTypeSystem.core(),
+        ).resolve(doc);
+        expect(result.structures, fresh.structures);
+        expect(result.converged, true);
+        expect(
+          result.diagnostics
+              .map((issue) => '${issue.code}/${issue.entityId}')
+              .toSet(),
+          fresh.diagnostics
+              .map((issue) => '${issue.code}/${issue.entityId}')
+              .toSet(),
+        );
+      }
+    },
+  );
   late NodeDefinitionRegistry definitions;
   late GraphResolver resolver;
   GraphDocument document({List<String> cases = const ['one', 'two']}) =>

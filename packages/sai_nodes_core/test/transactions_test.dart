@@ -62,6 +62,52 @@ GraphConnection wire(
 
 void main() {
   test(
+    'auto-fit and containment membership are resolved in the same transaction',
+    () {
+      final graph = controller();
+      addTearDown(graph.dispose);
+      graph.execute(add('a', point: const GraphPoint(50, 60)));
+      graph.execute(
+        CreateFrameCommand(
+          'main',
+          GraphFrame(
+            id: 'auto',
+            bounds: const GraphRect(0, 0, 600, 400),
+            title: 'Auto',
+            autoFit: true,
+            memberNodeIds: {'a'},
+          ),
+        ),
+      );
+      var notices = 0;
+      graph.addDocumentListener((_) => notices++);
+      final before = graph.document;
+      graph.execute(
+        MoveNodesCommand('main', {'a': const GraphPoint(250, 260)}),
+      );
+      expect(notices, 1);
+      expect(graph.activeSpace!.frames['auto']!.bounds.left, 226);
+      graph.undo();
+      expect(graph.document, before);
+      graph.execute(
+        CreateFrameCommand(
+          'main',
+          GraphFrame(
+            id: 'contains',
+            bounds: const GraphRect(0, 0, 600, 400),
+            title: 'Contains',
+            metadata: {'membership': 'contains'},
+          ),
+        ),
+      );
+      expect(graph.activeSpace!.frames['contains']!.memberNodeIds, {'a'});
+      graph.execute(
+        MoveNodesCommand('main', {'a': const GraphPoint(900, 900)}),
+      );
+      expect(graph.activeSpace!.frames['contains']!.memberNodeIds, isEmpty);
+    },
+  );
+  test(
     'compound commit is synchronous, resolved, indexed and notified once',
     () {
       final graph = controller();

@@ -172,6 +172,11 @@ final class GraphTransaction {
     if (command is ReconnectConnectionCommand) {
       _strictConnections.add((command.spaceId, command.connectionId));
     }
+    if (command is MergeGraphSpaceCommand && !command.allowInvalid) {
+      _strictConnections.addAll(
+        command.fragment.connections.keys.map((id) => (command.spaceId, id)),
+      );
+    }
   }
 }
 
@@ -447,9 +452,8 @@ final class GraphController {
     _check();
     final result = resolver.resolve(_document);
     if (result.document != _document) {
-      throw StateError(
-        'Registry refresh cannot silently mutate a document; use preserve policy.',
-      );
+      transaction((_) {}, label: 'Refresh node definitions');
+      return;
     }
     _resolution = result;
     _notify();
@@ -515,10 +519,11 @@ final class GraphController {
     GraphSize viewport,
   ) {
     final bounds = ids.map((id) => nodeBounds[id]).whereType<GraphRect>();
-    if (bounds.isNotEmpty)
+    if (bounds.isNotEmpty) {
       setCamera(
         camera.focusBounds(bounds.reduce((a, b) => a.union(b)), viewport),
       );
+    }
   }
 
   void fitSpace(Map<String, GraphRect> nodeBounds, GraphSize viewport) =>
