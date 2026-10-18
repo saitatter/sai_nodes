@@ -149,10 +149,20 @@ without Flutter passed; 17 Flutter canvas/scene tests plus one optional benchmar
 skipped; the same 17 interactions passed on native Windows. Core and Flutter
 benchmarks completed at 100/500/1000/3000/5000 nodes. See docs/performance.md for
 median/p95 values and measured limitations. Repository analysis passed. The
-publish dry-runs found only modified-worktree warnings before the cleanup commit;
-they will be rerun after committing. No package or branch has been published.
+publish dry-runs passed with zero warnings after the cleanup commit. No package
+or branch has been published.
 
-Showrunner has also cut root/profile/stream-plan automation and shader authoring
-over to this API. It is performing the final application regression and deleting
-its superseded implementation. No backwards-compatibility layer remains in the
-library. Ctrl+F delegates to host search; unmodified F retains fit-to-selection.
+Showrunner has cut root/profile/stream-plan automation and shader authoring over
+to this API and deleted its superseded editor/runtime/schema and obsolete tests.
+Final application verification passed 650 unit/widget tests (7 opt-in external
+live probes skipped), all 21 local Windows integration files, analysis,
+formatting, Debug/Release builds, runtime/authoring benchmarks and contract/product
+parity. Its docs/testing/graph-rewrite-progress.md records the application checks,
+visual comparison results and external requirements. No backwards-compatibility
+layer remains. Ctrl+F delegates to host search; unmodified F retains fit-to-selection.
+
+The application pins the API cleanup commit
+efd339ddd0e976076b7476f34804c3a7834247c6, which includes the tested implementation.
+Later documentation-only commits do not change that API. Local overrides are
+ignored; the library history must be pushed before a clean remote application
+checkout can resolve the Git dependencies.
