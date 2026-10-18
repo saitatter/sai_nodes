@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sai_nodes/sai_nodes.dart';
 import 'package:sai_nodes_example/gallery/app.dart';
@@ -56,14 +58,15 @@ void main() {
     },
   );
   testWidgets(
-    'properties, run, undo, redo, add, delete and source errors preserve editing',
+    'inline controls, run, undo, redo, add, delete and source errors preserve editing',
     (tester) async {
       await open(tester, const Size(1440, 960));
-      await tester.tap(find.byKey(const ValueKey('node-picker-game-null')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Grounded?').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('field-grounded-value')));
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('field-grounded-value')),
+          matching: find.byType(Checkbox),
+        ),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('run-demo')));
       for (var i = 0; i < 8; i++) {
@@ -84,8 +87,7 @@ void main() {
       await tester.tap(find.text('Jump input').last);
       await tester.pumpAndSettle();
       expect(graph.activeSpace!.nodes.length, 6);
-      await tester.ensureVisible(find.text('Delete selected'));
-      await tester.tap(find.text('Delete selected'));
+      await tester.tap(find.byTooltip('Delete selected'));
       await tester.pumpAndSettle();
       expect(graph.activeSpace!.nodes.length, 5);
       final before = graph.document;
@@ -111,10 +113,11 @@ void main() {
     ) async {
       await open(tester, size);
       if (size.width < 1180) {
-        await tester.tap(find.byTooltip('Preview and properties'));
+        await tester.tap(find.byTooltip('Preview'));
         await tester.pumpAndSettle();
         expect(find.text('PREVIEW'), findsOneWidget);
-        expect(find.text('NODE PROPERTIES'), findsOneWidget);
+        expect(find.text('NODE PROPERTIES'), findsNothing);
+        expect(find.text('Select a node'), findsNothing);
       }
       expect(tester.takeException(), isNull);
     });
@@ -154,6 +157,119 @@ void main() {
     graph.undo();
     await tester.pumpAndSettle();
     expect(find.text('PROJECT'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('inline slider, choice, JSON and idea text persist with undo', (
+    tester,
+  ) async {
+    await open(tester, const Size(1440, 960));
+    var editor = tester.widget<NodeEditor>(find.byType(NodeEditor));
+    final position =
+        editor.controller.activeSpace!.nodePresentations['impulse']!.position;
+    final strength = find.descendant(
+      of: find.byKey(const ValueKey('field-impulse-strength')),
+      matching: find.byType(CupertinoSlider),
+    );
+    await tester.drag(strength, const Offset(50, 0));
+    await tester.pumpAndSettle();
+    expect(
+      editor.controller.activeSpace!.nodes['impulse']!.data['strength'],
+      isNot(7.0),
+    );
+    expect(
+      editor.controller.activeSpace!.nodePresentations['impulse']!.position,
+      position,
+    );
+    final beforeKey =
+        editor.controller.activeSpace!.nodes['impulse']!.data['strength']
+            as num;
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(
+      editor.controller.activeSpace!.nodes['impulse']!.data['strength'] as num,
+      lessThan(beforeKey),
+    );
+    await tester.tap(find.byTooltip('Undo'));
+    await tester.pumpAndSettle();
+    expect(
+      editor.controller.activeSpace!.nodes['impulse']!.data['strength'],
+      7.0,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('demo-audio')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('field-oscillator-waveform')),
+        matching: find.byType(DropdownButton<String>),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('triangle').last);
+    await tester.pumpAndSettle();
+    editor = tester.widget<NodeEditor>(find.byType(NodeEditor));
+    expect(
+      editor.controller.activeSpace!.nodes['oscillator']!.data['waveform'],
+      'triangle',
+    );
+    await tester.tap(find.byTooltip('Undo'));
+    await tester.pumpAndSettle();
+    expect(
+      editor.controller.activeSpace!.nodes['oscillator']!.data['waveform'],
+      'sine',
+    );
+
+    await tester.tap(find.byKey(const ValueKey('demo-data')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit Dataset (JSON)'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('json-editor')), '{}');
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Expected a JSON array'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('json-editor')),
+      '[{"name":"Test","score":90}]',
+    );
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    editor = tester.widget<NodeEditor>(find.byType(NodeEditor));
+    expect(
+      (editor.controller.activeSpace!.nodes['rows']!.data['rows'] as List)
+          .length,
+      1,
+    );
+    await tester.tap(find.byTooltip('Undo'));
+    await tester.pumpAndSettle();
+    expect(
+      (editor.controller.activeSpace!.nodes['rows']!.data['rows'] as List)
+          .length,
+      4,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('demo-mindmap')));
+    await tester.pumpAndSettle();
+    final input = find.descendant(
+      of: find.byKey(const ValueKey('idea-label-idea')),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(input, 'Creative testing');
+    await tester.pumpAndSettle();
+    editor = tester.widget<NodeEditor>(find.byType(NodeEditor));
+    expect(
+      editor.controller.activeSpace!.nodes['idea']!.data['label'],
+      'Creative testing',
+    );
+    expect(find.text('Creative testing'), findsWidgets);
+    // Undo while the input still has focus must refresh the visible text too.
+    editor.controller.undo();
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(input).controller!.text,
+      'A better creative tool',
+    );
+    expect(editor.executionSource, isNull);
+    expect(find.text('NODE PROPERTIES'), findsNothing);
     expect(tester.takeException(), isNull);
   });
   test('rendering has no execution trace or authoring mutation', () async {

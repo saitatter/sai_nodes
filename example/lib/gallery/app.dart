@@ -8,6 +8,7 @@ import 'catalog.dart';
 import 'preview.dart';
 import 'session.dart';
 import 'idea_card.dart';
+import 'inline_field.dart';
 
 const _background = Color(0xff101217);
 const _panel = Color(0xff171a21);
@@ -459,6 +460,18 @@ class _GalleryPageState extends State<GalleryPage> {
                                                               context,
                                                               model,
                                                             ) => IdeaCard(
+                                                              onChanged: (value) =>
+                                                                  session.update(
+                                                                    model.node,
+                                                                    session.demo
+                                                                        .specFor(
+                                                                          model
+                                                                              .node,
+                                                                        )
+                                                                        .fields
+                                                                        .single,
+                                                                    value,
+                                                                  ),
                                                               model: model,
                                                               color: session
                                                                   .demo
@@ -483,48 +496,36 @@ class _GalleryPageState extends State<GalleryPage> {
                                                             field,
                                                             value,
                                                             onChanged,
-                                                          ) => Row(
-                                                            children: [
-                                                              Expanded(
-                                                                child: Text(
-                                                                  field.label,
-                                                                  maxLines: 1,
-                                                                  overflow:
-                                                                      TextOverflow
-                                                                          .ellipsis,
-                                                                  style: const TextStyle(
-                                                                    color:
-                                                                        _muted,
-                                                                    fontSize:
-                                                                        11,
+                                                          ) {
+                                                            final spec = session
+                                                                .demo
+                                                                .specFor(
+                                                                  model.node,
+                                                                )
+                                                                .fields
+                                                                .singleWhere(
+                                                                  (item) =>
+                                                                      item.id ==
+                                                                      field.id,
+                                                                );
+                                                            return InlineField(
+                                                              key: ValueKey(
+                                                                'field-${model.node.id}-${field.id}',
+                                                              ),
+                                                              field: spec,
+                                                              value: value,
+                                                              color: session
+                                                                  .demo
+                                                                  .color,
+                                                              onChanged:
+                                                                  onChanged,
+                                                              onEditJson: () =>
+                                                                  _jsonField(
+                                                                    model.node,
+                                                                    spec,
                                                                   ),
-                                                                ),
-                                                              ),
-                                                              const SizedBox(
-                                                                width: 8,
-                                                              ),
-                                                              Flexible(
-                                                                child: Text(
-                                                                  value is List
-                                                                      ? jsonEncode(
-                                                                          value,
-                                                                        )
-                                                                      : '$value',
-                                                                  maxLines: 1,
-                                                                  overflow:
-                                                                      TextOverflow
-                                                                          .ellipsis,
-                                                                  style: TextStyle(
-                                                                    color: session
-                                                                        .demo
-                                                                        .color,
-                                                                    fontSize:
-                                                                        11,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
+                                                            );
+                                                          },
                                                       theme: GraphEditorTheme(
                                                         data:
                                                             session
@@ -623,7 +624,7 @@ class _GalleryPageState extends State<GalleryPage> {
                                                     ),
                                                   ),
                                                 ),
-                                                child: _inspector(),
+                                                child: _preview(),
                                               ),
                                           ],
                                         ),
@@ -837,12 +838,20 @@ class _GalleryPageState extends State<GalleryPage> {
                 PopupMenuItem(value: item, child: Text(item.name)),
             ],
           ),
+        IconButton(
+          tooltip: 'Delete selected',
+          onPressed: session.graph.selection.isEmpty
+              ? null
+              : session.graph.deleteSelection,
+          icon: const Icon(Icons.delete_outline, size: 18),
+          visualDensity: VisualDensity.compact,
+        ),
         const Spacer(),
         if (!wide)
           IconButton(
-            tooltip: 'Preview and properties',
-            onPressed: _showInspector,
-            icon: const Icon(Icons.tune_rounded, size: 19),
+            tooltip: 'Preview',
+            onPressed: _showPreview,
+            icon: const Icon(Icons.visibility_outlined, size: 19),
             visualDensity: VisualDensity.compact,
           ),
         if (!small)
@@ -979,7 +988,7 @@ class _GalleryPageState extends State<GalleryPage> {
     return 'Ready · ${session.result!.visited.length} nodes evaluated locally';
   }
 
-  void _showInspector() {
+  void _showPreview() {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -989,182 +998,39 @@ class _GalleryPageState extends State<GalleryPage> {
         height: MediaQuery.sizeOf(context).height * .78,
         child: AnimatedBuilder(
           animation: session,
-          builder: (context, _) => _inspector(),
+          builder: (context, _) => _preview(),
         ),
       ),
     );
   }
 
-  Widget _inspector() {
-    final graph = session.graph;
-    final nodeId = graph.selection.nodes.firstOrNull;
-    final node = nodeId == null ? null : graph.activeSpace!.nodes[nodeId];
-    final spec = node == null ? null : session.demo.specFor(node);
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Row(
-          children: [
-            const Text(
-              'PREVIEW',
-              style: TextStyle(fontSize: 10, color: _muted, letterSpacing: 1.4),
-            ),
-            const Spacer(),
-            _pill('LOCAL', const Color(0xff6fd9ba)),
-          ],
-        ),
-        const SizedBox(height: 18),
-        DemoPreview(session: session),
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 22),
-          child: Divider(height: 1, color: _line),
-        ),
-        const Text(
-          'NODE PROPERTIES',
-          style: TextStyle(fontSize: 10, color: _muted, letterSpacing: 1.4),
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          key: ValueKey('node-picker-$selected-$nodeId'),
-          initialValue: nodeId,
-          isExpanded: true,
-          hint: const Text('Select a node', style: TextStyle(fontSize: 12)),
-          decoration: const InputDecoration(
-            contentPadding: EdgeInsets.symmetric(horizontal: 11, vertical: 13),
-          ),
-          items: [
-            for (final item in graph.activeSpace!.nodes.values)
-              DropdownMenuItem(
-                value: item.id,
-                child: Text(
-                  session.demo.specFor(item).title,
-                  style: const TextStyle(fontSize: 12),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-          ],
-          onChanged: (value) {
-            if (value != null) graph.select(GraphSelection(nodes: {value}));
-          },
-        ),
-        const SizedBox(height: 16),
-        if (node == null)
-          Text(
-            session.demo.hint,
-            style: const TextStyle(color: _muted, fontSize: 12, height: 1.7),
-          ),
-        if (node != null && spec!.fields.isEmpty)
-          const Text(
-            'This node uses its connected inputs. Rewire a port to change what flows through it.',
-            style: TextStyle(color: _muted, fontSize: 12, height: 1.6),
-          ),
-        if (node != null)
-          for (final field in spec!.fields) ...[
-            _field(node, field),
-            const SizedBox(height: 18),
-          ],
-        if (node != null)
-          TextButton.icon(
-            onPressed: () => graph.deleteSelection(),
-            icon: const Icon(Icons.delete_outline, size: 16),
-            label: const Text(
-              'Delete selected',
-              style: TextStyle(fontSize: 12),
-            ),
-          ),
-        const SizedBox(height: 20),
-        Text(
-          session.demo.isStructural
-              ? 'Parent–child relationships update as you edit.\nThis map has no execution runtime.'
-              : 'sai_nodes edits the graph.\nThis example host ${session.demo.hasExecution ? 'runs the logic' : 'provides the preview'}.',
-          style: const TextStyle(color: _muted, fontSize: 10, height: 1.6),
-        ),
-      ],
-    );
-  }
-
-  Widget _field(GraphNode node, DemoField field) {
-    final value = node.data[field.id] ?? field.value;
-    final key = ValueKey('field-${node.id}-${field.id}');
-    if (field.kind == GraphFieldKind.boolean) {
-      return Material(
-        color: Colors.transparent,
-        child: SwitchListTile.adaptive(
-          key: key,
-          contentPadding: EdgeInsets.zero,
-          title: Text(field.label, style: const TextStyle(fontSize: 12)),
-          value: value == true,
-          activeThumbColor: session.demo.color,
-          onChanged: (value) => session.update(node, field, value),
-        ),
-      );
-    }
-    if (field.kind == GraphFieldKind.number) {
-      final number = value is num ? value.toDouble() : field.min;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _preview() => ListView(
+    padding: const EdgeInsets.all(20),
+    children: [
+      Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(field.label, style: const TextStyle(fontSize: 12)),
-              ),
-              Text(
-                number.toStringAsFixed(field.max <= 1 ? 2 : 1),
-                style: TextStyle(color: session.demo.color, fontSize: 12),
-              ),
-            ],
+          const Text(
+            'PREVIEW',
+            style: TextStyle(fontSize: 10, color: _muted, letterSpacing: 1.4),
           ),
-          Slider(
-            key: key,
-            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 12),
-            min: field.min,
-            max: field.max,
-            value: number.clamp(field.min, field.max),
-            activeColor: session.demo.color,
-            onChanged: (value) => session.update(node, field, value),
-          ),
+          const Spacer(),
+          _pill('LOCAL', const Color(0xff6fd9ba)),
         ],
-      );
-    }
-    if (field.kind == GraphFieldKind.choice) {
-      return DropdownButtonFormField<String>(
-        key: ValueKey('$key-$value'),
-        initialValue: field.choices.contains(value)
-            ? value as String
-            : field.choices.first,
-        decoration: InputDecoration(labelText: field.label),
-        items: [
-          for (final choice in field.choices)
-            DropdownMenuItem(value: choice, child: Text(choice)),
-        ],
-        onChanged: (value) {
-          if (value != null) session.update(node, field, value);
-        },
-      );
-    }
-    if (field.kind == GraphFieldKind.json) {
-      return OutlinedButton.icon(
-        key: key,
-        onPressed: () => _jsonField(node, field),
-        icon: const Icon(Icons.data_object, size: 16),
-        label: Text(
-          'Edit ${field.label.toLowerCase()}',
-          style: const TextStyle(fontSize: 11),
-        ),
-      );
-    }
-    return TextFormField(
-      key: ValueKey('$key-$value'),
-      initialValue: '$value',
-      decoration: InputDecoration(
-        labelText: field.label,
-        helperText: 'Press Enter to apply',
       ),
-      style: const TextStyle(fontSize: 12),
-      onFieldSubmitted: (value) => session.update(node, field, value),
-    );
-  }
+      const SizedBox(height: 18),
+      DemoPreview(session: session),
+      const SizedBox(height: 20),
+      Text(
+        session.demo.hint,
+        style: const TextStyle(color: _muted, fontSize: 12, height: 1.7),
+      ),
+      const SizedBox(height: 16),
+      const Text(
+        'Edit values directly on the nodes.',
+        style: TextStyle(color: _muted, fontSize: 10),
+      ),
+    ],
+  );
 }
 
 class _JsonDialog extends StatefulWidget {
