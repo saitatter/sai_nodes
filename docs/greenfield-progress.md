@@ -131,3 +131,28 @@ Asynchronous clipboard reads/cuts cannot target a controller switched during the
 operation. Verification: 36 core tests, 92 Flutter tests passed, one optional
 benchmark skipped; analysis passed. Host graph headers and typed port labels
 also reuse the generic geometry and cached node bodies.
+
+
+## API cutover and final library verification
+
+The 0.x exports, event bus, prototypes, embedded execution runner, mutable editor
+model, controller implementation and shader grid have been deleted. Their tests
+were removed with that implementation. Current behavioral coverage lives in the
+immutable core suites and the new canvas/scene suites; historical test counts
+above include the old API and must not be treated as current rewrite coverage.
+The unused context-menu/shader/UUID dependencies were removed. Public package
+README files describe only the new API. Benchmark fixtures now stay inside the
+published Flutter package instead of importing files outside its package archive.
+
+Current verification: 36 core tests; standalone core resolution/analysis/tests
+without Flutter passed; 17 Flutter canvas/scene tests plus one optional benchmark
+skipped; the same 17 interactions passed on native Windows. Core and Flutter
+benchmarks completed at 100/500/1000/3000/5000 nodes. See docs/performance.md for
+median/p95 values and measured limitations. Repository analysis passed. The
+publish dry-runs found only modified-worktree warnings before the cleanup commit;
+they will be rerun after committing. No package or branch has been published.
+
+Showrunner has also cut root/profile/stream-plan automation and shader authoring
+over to this API. It is performing the final application regression and deleting
+its superseded implementation. No backwards-compatibility layer remains in the
+library. Ctrl+F delegates to host search; unmodified F retains fit-to-selection.

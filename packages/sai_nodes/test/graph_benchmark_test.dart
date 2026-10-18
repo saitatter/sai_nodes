@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sai_nodes/sai_nodes.dart';
-import '../../../benchmark/core_benchmark.dart'
+import 'support/benchmark_graph.dart'
     show benchmarkDocument, benchmarkDefinitions, summary;
 
 void main() {

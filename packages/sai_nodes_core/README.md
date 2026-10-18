@@ -1,28 +1,25 @@
-# sai_nodes_core
+﻿# sai_nodes_core
 
-Pure Dart foundations for the Sai Nodes 1.0 graph editor rewrite.
+Pure Dart immutable graph authoring, independent of Flutter and dart:ui.
 
-The immutable `GraphDocument` owns spaces, nodes, connections, presentations,
-frames and comments. Connections are stored once. Nested semantic JSON is copied
-and frozen. `GraphIndexes` derives adjacency caches, `GraphTypeSystem` uses stable
-string IDs, and `GraphDocumentValidator` reports structural problems without
-removing unresolved entities.
+GraphDocument owns graph spaces. Each space stores nodes, unified control/data/
+custom connections, explicit node and connection presentations, frames and
+comments. Nested JSON is copied and frozen. Stable node/port/type IDs define
+identity; labels and screen position never do.
 
-```dart
-import 'package:sai_nodes_core/sai_nodes_core.dart';
+NodeDefinitionRegistry supplies declarative node descriptions. GraphResolver
+tracks the document reads made by dynamic port/field definitions and resolves
+bounded fixed points. Missing definitions, removed ports and invalid imported
+connections remain in the document with diagnostics.
 
-final document = GraphDocument(id: 'automation', spaces: {
-  'main': GraphSpace(id: 'main', nodes: {
-    'constant': GraphNode(id: 'constant', type: 'example.number', data: {'value': 42}),
-  }),
-});
-final diagnostics = const GraphDocumentValidator().validate(document);
-```
+GraphController executes pure commands and atomic transactions, rolls back
+rejected mutations, and owns history/revisions. Selection and camera are ephemeral.
+A host document policy can reconcile semantic metadata in the same undo record.
+GraphFragment and editing helpers implement clipboard, grouping, alignment,
+splicing and duplication; host payloads can carry extra dependencies.
+Execution visuals are separate immutable snapshots keyed by scoped entity IDs.
 
-This is Phase A of an ongoing rewrite. Commands, transactions, definitions,
-dynamic resolution and the Flutter scene are subsequent phases. The new document
-codec supports only schema version 1; it has no legacy format decoder.
-
-Run `dart test` in this package. From the workspace root,
-`dart run tool/verify_core_isolation.dart` also resolves and tests a standalone
-copy without Flutter.
+The strict JSON codec supports only version 1. No 0.x decoder or migration exists.
+Run dart test in this package. The workspace tool/verify_core_isolation.dart also
+copies sources/tests to a temporary standalone Dart package and verifies that no
+Flutter dependency is needed.

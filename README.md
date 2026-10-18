@@ -1,33 +1,34 @@
-﻿# Sai Nodes workspace
+﻿# Sai Nodes 1.0 workspace
 
-This repository is being rewritten for Sai Nodes 1.0 on `rewrite/graph-1.0`.
-The canonical implementation plan is [docs/greenfield-plan.md](docs/greenfield-plan.md).
-See [progress and verification](docs/greenfield-progress.md) for completed phases.
+An immutable graph editing framework with separate Dart and Flutter packages.
+The 0.x editor API and its saved formats have been removed. There are no aliases,
+legacy decoders or migration helpers.
 
-- `packages/sai_nodes_core`: immutable documents, geometry, indexes, stable type
-  IDs and diagnostics. Pure Dart, independently testable without Flutter.
-- `packages/sai_nodes`: Flutter canvas package, relocated from the repository
-  root. Its controller/scene cutover to the new core is a subsequent phase.
+- [sai_nodes_core](packages/sai_nodes_core): documents, typed definitions,
+  dependency-tracked resolution, diagnostics, commands, history and clipboard.
+- [sai_nodes](packages/sai_nodes): Flutter canvas, shared geometry, spatial index,
+  virtualized node widgets, native frames/comments, routing and execution visuals.
+- [example](example): runnable host with dynamic ports and synthetic traces.
 
-The target architecture has one persisted graph document, transaction-owned
-mutations and host-provided declarative definitions. Application runtime
-execution stays outside the editor. Version 1.0 will replace the 0.x API and
-saved formats without compatibility adapters or migration support.
+A host owns the document controller and application runtime. Node definitions
+only describe authoring behavior; execution feedback is supplied separately.
+See [architecture](docs/architecture.md), [the implementation plan](docs/greenfield-plan.md)
+and [verification/performance notes](docs/greenfield-progress.md).
 
 ## Development
 
 ```sh
 flutter pub get
-dart format --output=none --set-exit-if-changed packages tool
+dart format --output=none --set-exit-if-changed packages benchmark tool example
 flutter analyze
 (cd packages/sai_nodes_core && dart test)
 (cd packages/sai_nodes && flutter test)
+(cd example && flutter test)
 dart tool/verify_core_isolation.dart
+dart run benchmark/core_benchmark.dart
 ```
 
-The isolation tool copies only core sources/tests into a temporary directory,
-resolves them with the Dart CLI, runs analysis and tests, then removes its own
-copy. Its only manifest adjustment is removing workspace resolution.
-
-No Showrunner dependency has been changed yet. Its cutover follows the core,
-editing engine and Flutter scene phases.
+Set SAI_NODES_BENCHMARK=1 to run packages/sai_nodes/test/graph_benchmark_test.dart.
+Reports are written under .tmp/benchmarks. Widget-test timings measure wall-clock
+work and are not GPU frame-rate claims. The example integration suite also runs
+on Windows with flutter test integration_test/graph_editor_integration_test.dart -d windows.

@@ -62,6 +62,7 @@ class NodeEditor extends StatefulWidget {
     this.connectionLabel,
     this.captureFragment,
     this.pasteFragment,
+    this.onFind,
   });
   final GraphController controller;
   final GraphNodeWidgetBuilder? nodeBuilder;
@@ -86,6 +87,7 @@ class NodeEditor extends StatefulWidget {
   /// Host payload and dependency handling shared by shortcuts and context menus.
   final GraphFragment Function()? captureFragment;
   final void Function(GraphFragment fragment)? pasteFragment;
+  final VoidCallback? onFind;
   @override
   State<NodeEditor> createState() => NodeEditorState();
 }
@@ -841,7 +843,12 @@ class NodeEditorState extends State<NodeEditor> with TickerProviderStateMixin {
       _perform(controller.deleteSelection);
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.keyF) {
+    if (modifier && key == LogicalKeyboardKey.keyF) {
+      if (widget.onFind == null) return KeyEventResult.ignored;
+      widget.onFind!();
+      return KeyEventResult.handled;
+    }
+    if (!modifier && key == LogicalKeyboardKey.keyF) {
       focusSelection();
       return KeyEventResult.handled;
     }

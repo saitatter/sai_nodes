@@ -28,14 +28,6 @@ dependencies:
   sai_nodes_core: ^1.0.0-dev.1
   flutter:
     sdk: flutter
-  flutter_context_menu: ^0.4.2
-  flutter_shaders: ^0.1.3
-  uuid: ^4.5.1
-  vector_math: ^2.2.0
-
-flutter:
-  shaders:
-    - shaders/grid.frag
 
 dev_dependencies:
   flutter_test:

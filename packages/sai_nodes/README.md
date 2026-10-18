@@ -1,12 +1,41 @@
-# sai_nodes
+﻿# sai_nodes
 
-Flutter graph editor package in the Sai Nodes workspace. Its pure Dart document
-foundation is the sibling `sai_nodes_core` package.
+Declarative graph editing in Flutter. This package renders the immutable
+sai_nodes_core document and delegates all persisted changes to its controller.
+It does not execute nodes or own application persistence.
 
-The 1.0 rewrite is in progress on `rewrite/graph-1.0`. Phase A relocates the
-existing canvas unchanged in behavior and introduces the new core. The canvas
-still uses its existing internal models until the scene/controller cutover;
-it is not yet a renderer for the new `GraphDocument`.
+```dart
+import 'package:sai_nodes/sai_nodes.dart';
 
-The final API will replace the 0.x editor API without compatibility adapters.
-See `docs/greenfield-plan.md` and `docs/greenfield-progress.md` in the repository.
+final definitions = NodeDefinitionRegistry()
+  ..register(DeclarativeNodeDefinition(
+    type: 'example.number',
+    displayName: 'Number',
+    ports: [StaticPortFamily([
+      ResolvedPort(id: 'value', label: 'Value',
+        direction: GraphPortDirection.output, kind: GraphPortKind.data,
+        dataType: 'core.number'),
+    ])],
+  ));
+final controller = GraphController(
+  document: GraphDocument(id: 'document', spaces: {
+    'main': GraphSpace(id: 'main', nodes: {
+      'number': GraphNode(id: 'number', type: 'example.number', data: {'value': 42}),
+    }),
+  }),
+  resolver: GraphResolver(definitions: definitions, types: GraphTypeSystem.core()),
+);
+// Place this widget inside a bounded Flutter layout:
+final canvas = NodeEditor(controller: controller);
+// The owner calls controller.dispose() when the document closes.
+```
+
+Default interactions cover selection, dragging, resizing, pan/zoom, connection
+creation/reconnection, waypoints, frames, comments, minimap and keyboard commands.
+Node/header/port/field builders share the default scene geometry. Optional host
+clipboard hooks preserve semantic dependencies through copy/paste/duplicate.
+An external GraphExecutionVisualSource supplies scoped activity and retained
+results without modifying the document or rebuilding cached node bodies.
+
+Version 1.0 replaces the 0.x API and formats completely. See the repository
+example and docs/architecture.md for host integration and performance limits.
