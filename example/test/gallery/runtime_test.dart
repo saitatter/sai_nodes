@@ -6,6 +6,18 @@ import 'package:sai_nodes_example/gallery/runtime.dart';
 
 void main() {
   GraphDemo demo(String id) => graphDemos.singleWhere((demo) => demo.id == id);
+  test('structural maps expose projection instead of execution', () {
+    final item = demo('mindmap');
+    final runtime = DemoRuntime(item, item.document());
+    expect(runtime.run, throwsStateError);
+    expect(runtime.projectStructure().outputs.length, item.nodes.length);
+    final graph = item.controller();
+    addTearDown(graph.dispose);
+    final ports = graph.resolution.structures[gallerySpace]!.values.expand(
+      (structure) => structure.ports,
+    );
+    expect(ports.every((port) => port.dataType == 'demo.idea'), true);
+  });
   for (final item in graphDemos) {
     test(
       '${item.id}: typed starter resolves, fits without overlaps, and runs after JSON round-trip',
@@ -14,7 +26,10 @@ void main() {
         addTearDown(graph.dispose);
         expect(graph.resolution.diagnostics, isEmpty);
         final document = GraphDocument.fromJson(graph.document.toJson());
-        final result = DemoRuntime(item, document).run();
+        final runtime = DemoRuntime(item, document);
+        final result = item.isStructural
+            ? runtime.projectStructure()
+            : runtime.run();
         expect(result.outputs.length, item.nodes.length);
         expect(result.connections.length, item.edges.length);
         final nodes = GraphSceneBuilder().build(graph).nodes.values.toList();
@@ -174,7 +189,7 @@ void main() {
         },
       );
       expect(
-        () => DemoRuntime(ideas, cyclic).run(),
+        () => DemoRuntime(ideas, cyclic).projectStructure(),
         throwsA(
           isA<StateError>().having(
             (error) => error.message,

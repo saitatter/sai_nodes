@@ -3,6 +3,8 @@ import 'package:sai_nodes/sai_nodes.dart';
 
 const gallerySpace = 'main';
 
+enum DemoMode { execute, render, audio, structure }
+
 class DemoField {
   const DemoField(
     this.id,
@@ -69,12 +71,16 @@ class GraphDemo {
     required this.nodes,
     required this.edges,
     this.output = 'output',
+    required this.mode,
   });
   final String id, category, title, description, hint, output;
   final IconData icon;
   final Color color;
   final List<DemoNode> nodes;
   final List<DemoEdge> edges;
+  final DemoMode mode;
+  bool get isStructural => mode == DemoMode.structure;
+  bool get hasExecution => mode == DemoMode.execute;
 
   NodeDefinitionRegistry definitions() {
     final registry = NodeDefinitionRegistry();
@@ -100,7 +106,7 @@ class GraphDemo {
                 direction: GraphPortDirection.output,
                 kind: GraphPortKind.data,
                 dataType: spec.output,
-                label: 'result',
+                label: isStructural ? 'children' : 'result',
               ),
             ]),
           ],
@@ -163,7 +169,7 @@ class GraphDemo {
 
   GraphController controller() {
     final types = GraphTypeSystem.core();
-    for (final id in ['uv', 'scalar', 'color', 'audio']) {
+    for (final id in ['uv', 'scalar', 'color', 'audio', 'idea']) {
       types.register(GraphDataType(id: 'demo.$id', label: id));
     }
     return GraphController(
@@ -181,6 +187,7 @@ class GraphDemo {
 const graphDemos = <GraphDemo>[
   GraphDemo(
     id: 'game',
+    mode: DemoMode.execute,
     category: 'Visual scripting',
     title: 'Give an idea a little jump.',
     description:
@@ -244,6 +251,7 @@ const graphDemos = <GraphDemo>[
   ),
   GraphDemo(
     id: 'workflow',
+    mode: DemoMode.execute,
     category: 'Workflow & process',
     title: 'A decision with a clear path.',
     description:
@@ -297,6 +305,7 @@ const graphDemos = <GraphDemo>[
   ),
   GraphDemo(
     id: 'shader',
+    mode: DemoMode.render,
     category: 'Shader & material',
     title: 'Connect a little atmosphere.',
     description:
@@ -350,6 +359,7 @@ const graphDemos = <GraphDemo>[
   ),
   GraphDemo(
     id: 'data',
+    mode: DemoMode.execute,
     category: 'Dataflow & ETL',
     title: 'Make the useful data flow.',
     description:
@@ -411,6 +421,7 @@ const graphDemos = <GraphDemo>[
   ),
   GraphDemo(
     id: 'ml',
+    mode: DemoMode.execute,
     category: 'ML architecture',
     title: 'Peek inside a tiny network.',
     description:
@@ -494,6 +505,7 @@ const graphDemos = <GraphDemo>[
   ),
   GraphDemo(
     id: 'audio',
+    mode: DemoMode.audio,
     category: 'Modular audio',
     title: 'Patch something you can hear.',
     description:
@@ -558,10 +570,11 @@ const graphDemos = <GraphDemo>[
   ),
   GraphDemo(
     id: 'mindmap',
+    mode: DemoMode.structure,
     category: 'Graph-based UI',
     title: 'Give your thoughts some space.',
     description:
-        'An editable project map with shared dependencies. Rename an idea, add a branch, or reconnect the hierarchy.',
+        'An editable project map of parent–child relationships. Rename an idea, add a branch, or reconnect the hierarchy.',
     hint:
         'Select an idea to rename it. Add a node, then connect it to a parent.',
     icon: Icons.bubble_chart_outlined,
@@ -574,8 +587,8 @@ const graphDemos = <GraphDemo>[
         'idea',
         0,
         220,
-        inputs: {'parent': 'core.object'},
-        output: 'core.object',
+        inputs: {'parent': 'demo.idea'},
+        output: 'demo.idea',
         fields: [DemoField('label', 'Idea', 'A better creative tool')],
       ),
       DemoNode(
@@ -584,8 +597,8 @@ const graphDemos = <GraphDemo>[
         'idea',
         340,
         20,
-        inputs: {'parent': 'core.object'},
-        output: 'core.object',
+        inputs: {'parent': 'demo.idea'},
+        output: 'demo.idea',
         fields: [DemoField('label', 'Idea', 'An intuitive experience')],
       ),
       DemoNode(
@@ -594,8 +607,8 @@ const graphDemos = <GraphDemo>[
         'idea',
         340,
         400,
-        inputs: {'parent': 'core.object'},
-        output: 'core.object',
+        inputs: {'parent': 'demo.idea'},
+        output: 'demo.idea',
         fields: [DemoField('label', 'Idea', 'A dependable foundation')],
       ),
       DemoNode(
@@ -604,8 +617,8 @@ const graphDemos = <GraphDemo>[
         'idea',
         680,
         0,
-        inputs: {'parent': 'core.object'},
-        output: 'core.object',
+        inputs: {'parent': 'demo.idea'},
+        output: 'demo.idea',
         fields: [DemoField('label', 'Idea', 'Make the canvas feel natural')],
       ),
       DemoNode(
@@ -614,8 +627,8 @@ const graphDemos = <GraphDemo>[
         'idea',
         680,
         210,
-        inputs: {'parent': 'core.object'},
-        output: 'core.object',
+        inputs: {'parent': 'demo.idea'},
+        output: 'demo.idea',
         fields: [DemoField('label', 'Idea', 'Let people explore safely')],
       ),
       DemoNode(
@@ -624,8 +637,8 @@ const graphDemos = <GraphDemo>[
         'idea',
         680,
         420,
-        inputs: {'parent': 'core.object'},
-        output: 'core.object',
+        inputs: {'parent': 'demo.idea'},
+        output: 'demo.idea',
         fields: [DemoField('label', 'Idea', 'Keep connections meaningful')],
       ),
     ],
