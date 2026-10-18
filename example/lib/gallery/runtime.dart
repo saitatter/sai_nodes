@@ -3,8 +3,8 @@ import 'package:sai_nodes/sai_nodes.dart';
 import 'catalog.dart';
 
 /// A deliberately small host runtime. The graph library does not execute nodes.
-class DemoRun {
-  const DemoRun(this.value, this.outputs, this.visited, this.connections);
+class DemoResult {
+  const DemoResult(this.value, this.outputs, this.visited, this.connections);
   final Object value;
   final Map<String, Object> outputs;
   final List<String> visited;
@@ -23,16 +23,28 @@ class DemoRuntime {
   final _order = <String>[];
   final _connections = <String>{};
 
-  DemoRun run() {
+  DemoResult run() {
+    if (demo.isStructural) {
+      throw StateError(
+        'Structural maps are not executable. Use projectStructure.',
+      );
+    }
+    return _result(() => _evaluate(demo.output));
+  }
+
+  DemoResult projectStructure() {
+    if (!demo.isStructural) throw StateError('Expected a structural map.');
+    return _result(() => _idea(demo.output, {}));
+  }
+
+  DemoResult _result(Object Function() evaluate) {
     if (space.nodes.length > 100 || space.connections.length > 200) {
       throw StateError(
         'This playground supports up to 100 nodes and 200 connections.',
       );
     }
-    final result = demo.id == 'mindmap'
-        ? _idea(demo.output, {})
-        : _evaluate(demo.output);
-    return DemoRun(
+    final result = evaluate();
+    return DemoResult(
       result,
       Map.unmodifiable(_outputs),
       List.unmodifiable(_order),

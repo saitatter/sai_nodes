@@ -4,6 +4,7 @@ import 'package:sai_nodes/sai_nodes.dart';
 import 'package:sai_nodes_example/gallery/app.dart';
 import 'package:sai_nodes_example/gallery/catalog.dart';
 import 'package:sai_nodes_example/gallery/session.dart';
+import 'package:sai_nodes_example/gallery/idea_card.dart';
 
 void main() {
   Future<void> open(WidgetTester tester, Size size) async {
@@ -23,6 +24,14 @@ void main() {
         expect(find.text(demo.title), findsOneWidget);
         final editor = tester.widget<NodeEditor>(find.byType(NodeEditor));
         expect(editor.controller.resolution.diagnostics, isEmpty);
+        if (demo.isStructural) {
+          expect(find.byKey(const ValueKey('run-demo')), findsNothing);
+          expect(editor.executionSource, isNull);
+          expect(find.textContaining('Live map'), findsWidgets);
+          expect(find.byType(IdeaCard), findsWidgets);
+          expect(tester.takeException(), isNull);
+          continue;
+        }
         await tester.tap(find.byKey(const ValueKey('run-demo')));
         for (var i = 0; i < 10; i++) {
           await tester.pump(const Duration(milliseconds: 150));
@@ -32,6 +41,9 @@ void main() {
             find.text('Audio playback is available in the web gallery.'),
             findsOneWidget,
           );
+        } else if (demo.mode == DemoMode.render) {
+          expect(find.text('WebGL material preview'), findsOneWidget);
+          expect(editor.executionSource, isNull);
         } else {
           expect(
             find.textContaining('nodes evaluated locally'),
@@ -107,6 +119,37 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+  test(
+    'structural edits and undo refresh the outline without execution',
+    () async {
+      final demo = graphDemos.singleWhere((demo) => demo.isStructural);
+      final session = GallerySession(demo);
+      addTearDown(session.dispose);
+      final node = session.graph.activeSpace!.nodes['idea']!;
+      final field = demo.specFor(node).fields.single;
+      session.update(node, field, 'An edited idea');
+      expect((session.result!.value as Map)['label'], 'An edited idea');
+      expect(session.visuals.snapshot.nodes, isEmpty);
+      expect(session.running, false);
+      session.graph.undo();
+      expect((session.result!.value as Map)['label'], node.data['label']);
+      await session.run();
+      expect(session.visuals.snapshot.nodes, isEmpty);
+      expect(session.visuals.snapshot.connections, isEmpty);
+      expect(session.running, false);
+    },
+  );
+  test('rendering has no execution trace or authoring mutation', () async {
+    final demo = graphDemos.singleWhere((demo) => demo.mode == DemoMode.render);
+    final session = GallerySession(demo);
+    addTearDown(session.dispose);
+    final document = session.graph.document;
+    await session.run();
+    expect(session.result, isNotNull);
+    expect(session.graph.document, same(document));
+    expect(session.visuals.snapshot.nodes, isEmpty);
+    expect(session.running, false);
+  });
   test(
     'stopping a run prevents delayed traces and malformed import is atomic',
     () async {

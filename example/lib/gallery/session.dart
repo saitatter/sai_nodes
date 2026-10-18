@@ -15,10 +15,11 @@ class GallerySession extends ChangeNotifier {
   final GraphDemo demo;
   final GraphController graph;
   final visuals = GraphExecutionVisualController();
-  DemoRun? result;
+  DemoResult? result;
   String? error;
   bool running = false;
   int _generation = 0, _semantic = 0;
+  Timer? _audioTimer;
 
   void _changed() {
     if (_semantic != graph.semanticRevision) {
@@ -26,6 +27,7 @@ class GallerySession extends ChangeNotifier {
       stop();
       result = null;
       error = null;
+      if (demo.isStructural) _evaluate();
     }
     notifyListeners();
   }
@@ -36,7 +38,8 @@ class GallerySession extends ChangeNotifier {
         (issue) => issue.severity == GraphDiagnosticSeverity.error,
       );
       if (errors.isNotEmpty) throw StateError(errors.first.message);
-      result = DemoRuntime(demo, graph.document).run();
+      final runtime = DemoRuntime(demo, graph.document);
+      result = demo.isStructural ? runtime.projectStructure() : runtime.run();
       error = null;
       return true;
     } catch (problem) {
@@ -47,6 +50,7 @@ class GallerySession extends ChangeNotifier {
   }
 
   Future<void> run({bool audio = false}) async {
+    if (demo.isStructural) return;
     stop();
     if (!_evaluate()) {
       notifyListeners();
@@ -58,6 +62,15 @@ class GallerySession extends ChangeNotifier {
         notifyListeners();
         return;
       }
+      running = true;
+      _audioTimer = Timer(const Duration(seconds: 2), () {
+        running = false;
+        notifyListeners();
+      });
+    }
+    if (!demo.hasExecution) {
+      notifyListeners();
+      return;
     }
     final generation = ++_generation;
     final run = result!;
@@ -106,6 +119,7 @@ class GallerySession extends ChangeNotifier {
   }
 
   void stop() {
+    _audioTimer?.cancel();
     _generation++;
     running = false;
     stopDemoAudio();

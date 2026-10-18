@@ -15,9 +15,15 @@ at example/lib/gallery_main.dart.
 | Dataflow & ETL | [Score pipeline](https://saitatter.github.io/sai_nodes/#data) | Filters JSON rows, divides scores by 100, aggregates a report |
 | ML architecture | [Tiny classifier](https://saitatter.github.io/sai_nodes/#ml) | Matrix products, biases, ReLU and sigmoid; forward inference only |
 | Modular audio | [Synth patch](https://saitatter.github.io/sai_nodes/#audio) | Builds a browser oscillator/gain/low-pass chain and plays two seconds |
-| Graph-based UI | [Project map](https://saitatter.github.io/sai_nodes/#mindmap) | Traverses connected ideas and displays the edited hierarchy |
+| Graph-based UI | [Project map](https://saitatter.github.io/sai_nodes/#mindmap) | Projects parent–child relationships into a live outline; no execution |
 
 Each example has its own document and undo history for the current tab session.
+Execution is an explicit host capability, not a property of every graph. Game,
+workflow, ETL and ML examples have Run and execution traces. The material example
+has Render; the audio example has Play patch and a real playback Stop control.
+Neither preview fabricates invocation counts or execution timings. The idea map
+has no Run button, run status or execution source: editable idea cards and typed
+parent–child relationships update its outline automatically, including undo/redo.
 Drag nodes, connect typed ports, select a node to edit properties, add/delete
 nodes, undo/redo, change routing, fit the graph, toggle the minimap or reset.
 Source opens editable graph JSON with copy/import. A failed import leaves the

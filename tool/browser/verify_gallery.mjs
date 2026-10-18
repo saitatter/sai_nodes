@@ -48,10 +48,10 @@ async function editDocument(edit) {
   await page.getByRole('button', {name: 'Apply', exact: true}).click();
   await page.waitForTimeout(200);
 }
-async function run() {
-  await page.getByRole('button', {name: 'Run', exact: true}).click();
+async function run({material = false} = {}) {
+  await page.getByRole('button', {name: material ? 'Render' : 'Run', exact: true}).click();
   await page.waitForTimeout(1600);
-  await hasText('nodes evaluated locally');
+  await hasText(material ? 'WebGL material preview' : 'nodes evaluated locally');
 }
 
 try {
@@ -69,7 +69,7 @@ try {
   for (const [id, category, result] of examples) {
     await select(category); await hasText(result);
     assert.equal(new URL(page.url()).hash || '#game', `#${id}`);
-    if (id !== 'audio') await run();
+    if (id !== 'audio' && id !== 'mindmap') await run({material: id === 'shader'});
     if (id === 'shader') {
       await page.waitForFunction(() => window.saiGallery.state.shader?.ok === true);
       const canvas = page.locator('canvas[aria-label="Live WebGL material preview"]');
@@ -96,6 +96,12 @@ try {
     }
     await capture(id); checks.push({name: id, passed: true});
   }
+  assert.equal(await page.getByRole('button', {name: 'Run', exact: true}).count(), 0);
+  await hasText('Live map');
+  await editDocument(document => { document.spaces.main.nodes.idea.data.label = 'Connected thinking'; });
+  await hasText('Connected thinking');
+  assert.equal(/invocations|0 ms|evaluated locally/.test(await snapshot()), false);
+  checks.push({name: 'structural-map-without-execution', passed: true});
   await select('Workflow & process');
   await editDocument(document => { document.spaces.main.nodes.expense.data.value = 1200; });
   await run(); await hasText('Manager review required');

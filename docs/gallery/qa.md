@@ -12,7 +12,7 @@ evaluation. They must remain examples, without external services or credentials.
 | Dataflow | Filtering, normalization, empty dataset | Row count and bars |
 | Neural network | Matrix/bias/ReLU/sigmoid and invalid shapes | Probability and layer properties |
 | Audio | Gesture-started oscillator/gain/filter; timed/manual stop | Patch values; browser audio state |
-| Idea map | Rename and connected hierarchy; reject cycle | Expanded idea outline |
+| Idea map | Live rename/undo and connected hierarchy; reject cycle; no execution capability | Idea cards and live outline, without Run or execution metrics |
 | Canvas | Drag/select nodes, connect ports, add/delete, undo/redo, fit | Geometry before/after interaction |
 | Editor tools | Routing styles, minimap, reset, editable JSON, copy | Menus, source dialog and invalid JSON |
 | Responsive | 1440×960, 1024×768, 390×844, short desktop | No overflow; narrow inspector sheet |

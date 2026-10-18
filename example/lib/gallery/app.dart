@@ -7,6 +7,7 @@ import 'browser.dart';
 import 'catalog.dart';
 import 'preview.dart';
 import 'session.dart';
+import 'idea_card.dart';
 
 const _background = Color(0xff101217);
 const _panel = Color(0xff171a21);
@@ -445,7 +446,32 @@ class _GalleryPageState extends State<GalleryPage> {
                                                       key: canvas,
                                                       controller: session.graph,
                                                       executionSource:
-                                                          session.visuals,
+                                                          session
+                                                              .demo
+                                                              .hasExecution
+                                                          ? session.visuals
+                                                          : null,
+                                                      nodeBuilder:
+                                                          session
+                                                              .demo
+                                                              .isStructural
+                                                          ? (
+                                                              context,
+                                                              model,
+                                                            ) => IdeaCard(
+                                                              model: model,
+                                                              color: session
+                                                                  .demo
+                                                                  .color,
+                                                              isRoot:
+                                                                  model
+                                                                      .node
+                                                                      .id ==
+                                                                  session
+                                                                      .demo
+                                                                      .output,
+                                                            )
+                                                          : null,
                                                       onCreateNode: _pick,
                                                       onError: _notice,
                                                       routing: routing,
@@ -499,23 +525,26 @@ class _GalleryPageState extends State<GalleryPage> {
                                                               ),
                                                             ],
                                                           ),
-                                                      theme:
-                                                          const GraphEditorTheme(
-                                                            background: Color(
-                                                              0xff13161d,
-                                                            ),
-                                                            grid: Color(
-                                                              0xff2d3040,
-                                                            ),
-                                                            node: Color(
-                                                              0xff202430,
-                                                            ),
-                                                            border: Color(
-                                                              0xff3c4253,
-                                                            ),
-                                                            selected: _purple,
-                                                            cornerRadius: 10,
-                                                          ),
+                                                      theme: GraphEditorTheme(
+                                                        data:
+                                                            session
+                                                                .demo
+                                                                .isStructural
+                                                            ? session.demo.color
+                                                            : const Color(
+                                                                0xff38bdf8,
+                                                              ),
+                                                        background: Color(
+                                                          0xff13161d,
+                                                        ),
+                                                        grid: Color(0xff2d3040),
+                                                        node: Color(0xff202430),
+                                                        border: Color(
+                                                          0xff3c4253,
+                                                        ),
+                                                        selected: _purple,
+                                                        cornerRadius: 10,
+                                                      ),
                                                       headerBuilder: (context, model) => Row(
                                                         children: [
                                                           Icon(
@@ -766,7 +795,10 @@ class _GalleryPageState extends State<GalleryPage> {
     child: Row(
       children: [
         if (!small) ...[
-          _pill('LIVE EDITOR', session.demo.color),
+          _pill(
+            session.demo.isStructural ? 'IDEA MAP' : 'LIVE EDITOR',
+            session.demo.color,
+          ),
           const SizedBox(width: 9),
         ],
         IconButton(
@@ -841,35 +873,46 @@ class _GalleryPageState extends State<GalleryPage> {
           icon: const Icon(Icons.more_horiz, size: 20),
         ),
         const SizedBox(width: 6),
-        FilledButton.icon(
-          key: const ValueKey('run-demo'),
-          onPressed: session.running
-              ? () {
-                  setState(() => session.stop());
-                }
-              : () => unawaited(session.run(audio: selected == 'audio')),
-          style: FilledButton.styleFrom(
-            backgroundColor: session.demo.color,
-            foregroundColor: _background,
-            padding: EdgeInsets.symmetric(horizontal: small ? 10 : 16),
-            minimumSize: const Size(0, 34),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(7),
+        if (session.demo.isStructural)
+          _pill('LIVE MAP', session.demo.color)
+        else
+          FilledButton.icon(
+            key: const ValueKey('run-demo'),
+            onPressed: session.running
+                ? () {
+                    setState(() => session.stop());
+                  }
+                : () => unawaited(session.run(audio: selected == 'audio')),
+            style: FilledButton.styleFrom(
+              backgroundColor: session.demo.color,
+              foregroundColor: _background,
+              padding: EdgeInsets.symmetric(horizontal: small ? 10 : 16),
+              minimumSize: const Size(0, 34),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(7),
+              ),
+            ),
+            icon: Icon(
+              session.running
+                  ? Icons.stop_rounded
+                  : session.demo.mode == DemoMode.render
+                  ? Icons.palette_outlined
+                  : session.demo.mode == DemoMode.audio
+                  ? Icons.volume_up_outlined
+                  : Icons.play_arrow_rounded,
+              size: 17,
+            ),
+            label: Text(
+              session.running
+                  ? 'Stop'
+                  : session.demo.mode == DemoMode.render
+                  ? 'Render'
+                  : selected == 'audio'
+                  ? 'Play patch'
+                  : 'Run',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
-          icon: Icon(
-            session.running ? Icons.stop_rounded : Icons.play_arrow_rounded,
-            size: 17,
-          ),
-          label: Text(
-            session.running
-                ? 'Stop'
-                : selected == 'audio'
-                ? 'Play patch'
-                : 'Run',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
-        ),
       ],
     ),
   );
@@ -896,13 +939,7 @@ class _GalleryPageState extends State<GalleryPage> {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            session.error != null
-                ? 'Run needs attention · open preview'
-                : session.running
-                ? 'Following the connected graph…'
-                : session.result == null
-                ? 'Graph changed · run to refresh'
-                : 'Ready · ${session.result!.visited.length} nodes evaluated locally',
+            _statusText,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(color: _muted, fontSize: 10),
@@ -916,6 +953,31 @@ class _GalleryPageState extends State<GalleryPage> {
       ],
     ),
   );
+
+  String get _statusText {
+    final demo = session.demo;
+    if (session.error != null) {
+      return '${demo.isStructural ? 'Map' : 'Preview'} needs attention · open preview';
+    }
+    if (demo.isStructural) {
+      return 'Live map · ${session.result?.outputs.length ?? 0} connected ideas';
+    }
+    if (session.running) {
+      return demo.mode == DemoMode.audio
+          ? 'Playing patch · stops after two seconds'
+          : 'Following the connected graph…';
+    }
+    if (session.result == null) {
+      return demo.mode == DemoMode.render
+          ? 'Material changed · render to refresh'
+          : 'Graph changed · ${demo.mode == DemoMode.audio ? 'play' : 'run'} to refresh';
+    }
+    if (demo.mode == DemoMode.render) return 'WebGL material preview';
+    if (demo.mode == DemoMode.audio) {
+      return 'Audio patch ready · press Play patch to listen';
+    }
+    return 'Ready · ${session.result!.visited.length} nodes evaluated locally';
+  }
 
   void _showInspector() {
     showModalBottomSheet<void>(
@@ -1011,9 +1073,11 @@ class _GalleryPageState extends State<GalleryPage> {
             ),
           ),
         const SizedBox(height: 20),
-        const Text(
-          'sai_nodes edits the graph.\nThis example host runs the logic.',
-          style: TextStyle(color: _muted, fontSize: 10, height: 1.6),
+        Text(
+          session.demo.isStructural
+              ? 'Parent–child relationships update as you edit.\nThis map has no execution runtime.'
+              : 'sai_nodes edits the graph.\nThis example host ${session.demo.hasExecution ? 'runs the logic' : 'provides the preview'}.',
+          style: const TextStyle(color: _muted, fontSize: 10, height: 1.6),
         ),
       ],
     );
