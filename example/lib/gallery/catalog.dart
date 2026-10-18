@@ -71,7 +71,7 @@ class GraphDemo {
     required this.nodes,
     required this.edges,
     this.output = 'output',
-    this.mode = DemoMode.execute,
+    required this.mode,
   });
   final String id, category, title, description, hint, output;
   final IconData icon;
@@ -187,6 +187,7 @@ class GraphDemo {
 const graphDemos = <GraphDemo>[
   GraphDemo(
     id: 'game',
+    mode: DemoMode.execute,
     category: 'Visual scripting',
     title: 'Give an idea a little jump.',
     description:
@@ -250,6 +251,7 @@ const graphDemos = <GraphDemo>[
   ),
   GraphDemo(
     id: 'workflow',
+    mode: DemoMode.execute,
     category: 'Workflow & process',
     title: 'A decision with a clear path.',
     description:
@@ -357,6 +359,7 @@ const graphDemos = <GraphDemo>[
   ),
   GraphDemo(
     id: 'data',
+    mode: DemoMode.execute,
     category: 'Dataflow & ETL',
     title: 'Make the useful data flow.',
     description:
@@ -418,6 +421,7 @@ const graphDemos = <GraphDemo>[
   ),
   GraphDemo(
     id: 'ml',
+    mode: DemoMode.execute,
     category: 'ML architecture',
     title: 'Peek inside a tiny network.',
     description:
