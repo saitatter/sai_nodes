@@ -139,6 +139,23 @@ void main() {
       expect(session.running, false);
     },
   );
+  testWidgets('idea cards respect collapsed geometry and undo restores them', (
+    tester,
+  ) async {
+    await open(tester, const Size(1440, 960));
+    await tester.tap(find.byKey(const ValueKey('demo-mindmap')));
+    await tester.pumpAndSettle();
+    final graph = tester.widget<NodeEditor>(find.byType(NodeEditor)).controller;
+    graph.execute(const SetNodeCollapsedCommand(gallerySpace, 'idea', true));
+    await tester.pumpAndSettle();
+    expect(graph.activeSpace!.nodePresentations['idea']!.collapsed, true);
+    expect(find.text('PROJECT'), findsNothing);
+    expect(tester.takeException(), isNull);
+    graph.undo();
+    await tester.pumpAndSettle();
+    expect(find.text('PROJECT'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   test('rendering has no execution trace or authoring mutation', () async {
     final demo = graphDemos.singleWhere((demo) => demo.mode == DemoMode.render);
     final session = GallerySession(demo);

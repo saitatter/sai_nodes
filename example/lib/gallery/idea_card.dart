@@ -26,7 +26,7 @@ class IdeaCard extends StatelessWidget {
       border: Border.all(color: color.withValues(alpha: isRoot ? .7 : .3)),
     ),
     child: Padding(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(model.presentation.collapsed ? 8 : 18),
       child: Row(
         children: [
           Icon(
@@ -34,35 +34,45 @@ class IdeaCard extends StatelessWidget {
                 ? Icons.lightbulb_outline
                 : Icons.chat_bubble_outline_rounded,
             color: color,
-            size: 23,
+            size: model.presentation.collapsed ? 16 : 23,
           ),
-          const SizedBox(width: 14),
+          SizedBox(width: model.presentation.collapsed ? 8 : 14),
           Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isRoot ? 'PROJECT' : 'IDEA',
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 9,
-                    letterSpacing: 1.6,
+            child: model.presentation.collapsed
+                ? Text(
+                    '${model.node.data['label'] ?? model.label}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isRoot ? 'PROJECT' : 'IDEA',
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 9,
+                          letterSpacing: 1.6,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      Text(
+                        '${model.node.data['label'] ?? model.label}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 7),
-                Text(
-                  '${model.node.data['label'] ?? model.label}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
