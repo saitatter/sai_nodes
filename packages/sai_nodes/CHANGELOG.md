@@ -1,4 +1,4 @@
-﻿# 1.0.0-dev.1
+﻿# 1.0.0
 
 - Replace the old API and formats with immutable GraphDocument authoring.
 - Add declarative definitions, tracked resolution, typed ports and diagnostics.

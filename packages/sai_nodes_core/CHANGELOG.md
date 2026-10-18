@@ -1,4 +1,4 @@
-# 1.0.0-dev.1
+# 1.0.0
 
 - Add immutable documents with unified connections, explicit presentations,
   strict version-1 serialization and diagnostics that retain invalid references.

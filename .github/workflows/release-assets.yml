@@ -47,10 +47,14 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           set -euo pipefail
-          version="${RELEASE_TAG#v}"
+          if [[ "$RELEASE_TAG" == core-v* ]]; then
+            archive_name="sai_nodes_core-${RELEASE_TAG#core-v}"
+          else
+            archive_name="sai_nodes-${RELEASE_TAG#v}"
+          fi
           mkdir -p dist
-          git archive --format=zip --output="dist/sai_nodes-${version}.zip" HEAD
-          git archive --format=tar.gz --output="dist/sai_nodes-${version}.tar.gz" HEAD
+          git archive --format=zip --output="dist/${archive_name}.zip" HEAD
+          git archive --format=tar.gz --output="dist/${archive_name}.tar.gz" HEAD
 
       - name: Upload archives to release
         env:

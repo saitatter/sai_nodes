@@ -4,6 +4,10 @@ An immutable graph editing framework with separate Dart and Flutter packages.
 The 0.x editor API and its saved formats have been removed. There are no aliases,
 legacy decoders or migration helpers.
 
+Stable release: **1.0.0**, requiring Dart 3.12 or later within 3.x. Add `sai_nodes:
+^1.0.0` to a Flutter host, or `sai_nodes_core: ^1.0.0` for Dart-only authoring.
+See [release notes](docs/releases/1.0.0.md) before upgrading from 0.x.
+
 - [sai_nodes_core](packages/sai_nodes_core): documents, typed definitions,
   dependency-tracked resolution, diagnostics, commands, history and clipboard.
 - [sai_nodes](packages/sai_nodes): Flutter canvas, shared geometry, spatial index,

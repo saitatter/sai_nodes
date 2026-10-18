@@ -8,7 +8,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  sai_nodes: ^1.0.0-dev.1
+  sai_nodes: ^1.0.0
 dev_dependencies:
   integration_test:
     sdk: flutter

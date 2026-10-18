@@ -7,4 +7,4 @@ workspace:
   - packages/sai_nodes
   - example
 dev_dependencies:
-  sai_nodes_core: ^1.0.0-dev.1
+  sai_nodes_core: ^1.0.0

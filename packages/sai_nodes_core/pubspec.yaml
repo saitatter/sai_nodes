@@ -1,6 +1,6 @@
 name: sai_nodes_core
 description: Immutable graph documents and editing foundations, independent of Flutter.
-version: 1.0.0-dev.1
+version: 1.0.0
 repository: https://github.com/saitatter/sai_nodes
 resolution: workspace
 environment:
