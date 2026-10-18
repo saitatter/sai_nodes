@@ -65,6 +65,20 @@ async function run({material = false} = {}) {
 try {
   await page.goto(url, {waitUntil: 'networkidle'});
   await enableAccessibility();
+  await page.evaluate(() => {
+    window.galleryContextEvents = [];
+    window.addEventListener('contextmenu', event => {
+      window.galleryContextEvents.push(event.defaultPrevented);
+    });
+  });
+  await page.mouse.click(270, 280, {button: 'right'});
+  await page.getByRole('menuitem', {name: 'Add node', exact: true}).waitFor();
+  assert.deepEqual(await page.evaluate(() => window.galleryContextEvents), [true]);
+  await page.getByRole('menuitem', {name: 'Add node', exact: true}).click();
+  await hasText('Add a node');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(250);
+  checks.push({name: 'editor-context-menu-without-browser-menu', passed: true});
   const examples = [
     ['game', 'Visual scripting', 'And… lift off.'],
     ['workflow', 'Workflow & process', 'Automatically approved'],
