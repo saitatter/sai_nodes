@@ -41,8 +41,10 @@ async function select(category) {
 async function capture(name) { await page.screenshot({path: resolve(evidence, `${name}.png`)}); }
 async function focusEditor(input) {
   await input.click();
-  // Flutter attaches its native editing element after focus, on the next frame.
-  await until(async () => (await input.inputValue()).length > 0, 'Editor did not attach its current value');
+  // Focus can reuse a semantics textarea with a cached value while Flutter
+  // reconnects editing. Let focus and the following frame finish before typing.
+  await input.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await until(async () => (await input.evaluate(element => element.matches(':focus'))) && (await input.inputValue()).length > 0, 'Editor did not attach its focused value');
 }
 async function editDocument(edit) {
   await page.getByRole('button', {name: 'Source', exact: true}).click();
