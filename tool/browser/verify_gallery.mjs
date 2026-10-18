@@ -39,11 +39,15 @@ async function select(category) {
   await page.waitForTimeout(250);
 }
 async function capture(name) { await page.screenshot({path: resolve(evidence, `${name}.png`)}); }
+async function focusEditor(input) {
+  await input.click();
+  // Flutter attaches its native editing element after focus, on the next frame.
+  await until(async () => (await input.inputValue()).length > 0, 'Editor did not attach its current value');
+}
 async function editDocument(edit) {
   await page.getByRole('button', {name: 'Source', exact: true}).click();
   const input = page.getByRole('alertdialog').getByRole('textbox');
-  await input.click();
-  await until(async () => (await input.inputValue()).length > 0, 'Source editor did not focus its document');
+  await focusEditor(input);
   const value = JSON.parse(await input.inputValue());
   edit(value);
   await input.fill(JSON.stringify(value));
@@ -106,7 +110,7 @@ try {
   checks.push({name: 'structural-map-without-execution', passed: true});
   // Exercise the real inline text editor, including several browser keystrokes.
   const ideaText = page.getByRole('textbox').first();
-  await ideaText.click();
+  await focusEditor(ideaText);
   const originalIdea = await ideaText.inputValue();
   await ideaText.fill('Direct idea');
   await ideaText.press('End');
@@ -114,7 +118,7 @@ try {
   await hasText('Direct idea editing');
   await page.getByRole('button', {name: 'Source', exact: true}).click();
   const ideaSource = page.getByRole('alertdialog').getByRole('textbox');
-  await ideaSource.click();
+  await focusEditor(ideaSource);
   assert.ok(Object.values(JSON.parse(await ideaSource.inputValue()).spaces.main.nodes).some(node => node.data.label === 'Direct idea editing'));
   await page.getByRole('button', {name: 'Cancel', exact: true}).click();
   await page.getByRole('button', {name: 'Undo', exact: true}).click();
@@ -138,7 +142,7 @@ try {
   await page.mouse.up();
   await page.getByRole('button', {name: 'Source', exact: true}).click();
   const sliderSource = page.getByRole('alertdialog').getByRole('textbox');
-  await sliderSource.click();
+  await focusEditor(sliderSource);
   const sliderDocument = JSON.parse(await sliderSource.inputValue());
   assert.ok(sliderDocument.spaces.main.nodes.impulse.data.strength > 7);
   await page.getByRole('button', {name: 'Cancel', exact: true}).click();
@@ -158,10 +162,10 @@ try {
   await select('Dataflow & ETL');
   await page.getByRole('button', {name: 'Edit Dataset (JSON)', exact: true}).click();
   const rowsInput = page.getByRole('alertdialog').getByRole('textbox');
-  await rowsInput.click(); await rowsInput.fill('{}');
+  await focusEditor(rowsInput); await rowsInput.fill('{}');
   await page.getByRole('button', {name: 'Apply', exact: true}).click();
   await hasText('Expected a JSON array.');
-  await rowsInput.click();
+  await focusEditor(rowsInput);
   await rowsInput.fill('[{"name":"Test","score":90}]');
   await page.getByRole('button', {name: 'Apply', exact: true}).click();
   await run(); await hasText('1 rows made it through.');
