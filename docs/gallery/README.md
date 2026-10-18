@@ -24,14 +24,17 @@ has Render; the audio example has Play patch and a real playback Stop control.
 Neither preview fabricates invocation counts or execution timings. The idea map
 has no Run button, run status or execution source: editable idea cards and typed
 parent–child relationships update its outline automatically, including undo/redo.
-Drag nodes, connect typed ports, select a node to edit properties, add/delete
-nodes, undo/redo, change routing, fit the graph, toggle the minimap or reset.
+Edit text directly on idea cards and use node checkboxes, dropdowns and bounded
+sliders to change values. JSON fields open a validated editor from the node. All
+field edits use document commands and support undo/redo. There is no separate
+properties inspector. Drag node headers, connect typed ports, add nodes, delete
+the selection from the toolbar, change routing, fit, toggle the minimap or reset.
 Source opens editable graph JSON with copy/import. A failed import leaves the
 document unchanged. Examples support at most 100 nodes and 200 connections.
 Changes are in-memory; copy JSON before closing/reloading if you want to keep them.
 
-On narrow screens, choose an example in the dropdown and open **Preview and
-properties** in the toolbar. The same preview/inspector appears in a bottom sheet.
+On narrow screens, choose an example in the dropdown and open **Preview**
+in the toolbar. Only the preview appears in a bottom sheet; editing stays on the canvas.
 Audio starts only from Play patch and stops on timeout, Stop, example changes,
 page hiding or leaving the page. No keys, backend or uploads are required.
 

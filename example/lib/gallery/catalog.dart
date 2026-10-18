@@ -117,6 +117,9 @@ class GraphDemo {
                   id: field.id,
                   label: field.label,
                   kind: field.kind,
+                  metadata: {
+                    if (field.choices.isNotEmpty) 'options': field.choices,
+                  },
                 ),
             ]),
           ],

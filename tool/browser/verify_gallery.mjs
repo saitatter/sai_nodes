@@ -16,6 +16,7 @@ const browser = await chromium.launch({executablePath, headless: true,
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']});
 const errors = [], failedRequests = [], checks = [];
 const page = await browser.newPage({viewport: {width: 1440, height: 960}});
+page.setDefaultTimeout(15000);
 page.on('pageerror', error => errors.push(error.message));
 page.on('response', response => { if (response.status() >= 400) failedRequests.push(`${response.status()} ${response.url()}`); });
 
@@ -33,13 +34,14 @@ async function enableAccessibility() {
   await page.getByRole('button', {name: 'GitHub', exact: true}).waitFor();
 }
 async function select(category) {
+  console.log(`Checking ${category}`);
   await page.getByRole('button', {name: category, exact: true}).click();
   await page.waitForTimeout(250);
 }
 async function capture(name) { await page.screenshot({path: resolve(evidence, `${name}.png`)}); }
 async function editDocument(edit) {
   await page.getByRole('button', {name: 'Source', exact: true}).click();
-  const input = page.getByRole('textbox');
+  const input = page.getByRole('alertdialog').getByRole('textbox');
   await input.click();
   await until(async () => (await input.inputValue()).length > 0, 'Source editor did not focus its document');
   const value = JSON.parse(await input.inputValue());
@@ -102,13 +104,78 @@ try {
   await hasText('Connected thinking');
   assert.equal(/invocations|0 ms|evaluated locally/.test(await snapshot()), false);
   checks.push({name: 'structural-map-without-execution', passed: true});
+  // Exercise the real inline text editor, including several browser keystrokes.
+  const ideaText = page.getByRole('textbox').first();
+  await ideaText.click();
+  const originalIdea = await ideaText.inputValue();
+  await ideaText.fill('Direct idea');
+  await ideaText.press('End');
+  await page.keyboard.type(' editing');
+  await hasText('Direct idea editing');
+  await page.getByRole('button', {name: 'Source', exact: true}).click();
+  const ideaSource = page.getByRole('alertdialog').getByRole('textbox');
+  await ideaSource.click();
+  assert.ok(Object.values(JSON.parse(await ideaSource.inputValue()).spaces.main.nodes).some(node => node.data.label === 'Direct idea editing'));
+  await page.getByRole('button', {name: 'Cancel', exact: true}).click();
+  await page.getByRole('button', {name: 'Undo', exact: true}).click();
+  await hasText(originalIdea);
+  await page.getByRole('button', {name: 'Redo', exact: true}).click();
+  await hasText('Direct idea editing');
+  assert.ok(!(await snapshot()).includes('NODE PROPERTIES'));
+  checks.push({name: 'inline-idea-text-history', passed: true});
+
+  await select('Visual scripting');
+  const checkbox = page.getByRole('checkbox').first();
+  await checkbox.click();
+  await run(); await hasText('Staying grounded.');
+  await page.getByRole('button', {name: 'Undo', exact: true}).click();
+  await run(); await hasText('lift off.');
+  const slider = page.getByRole('slider').first();
+  const sliderBox = await slider.boundingBox();
+  await page.mouse.move(sliderBox.x + sliderBox.width * .545, sliderBox.y + sliderBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(sliderBox.x + sliderBox.width * .9, sliderBox.y + sliderBox.height / 2, {steps: 10});
+  await page.mouse.up();
+  await page.getByRole('button', {name: 'Source', exact: true}).click();
+  const sliderSource = page.getByRole('alertdialog').getByRole('textbox');
+  await sliderSource.click();
+  const sliderDocument = JSON.parse(await sliderSource.inputValue());
+  assert.ok(sliderDocument.spaces.main.nodes.impulse.data.strength > 7);
+  await page.getByRole('button', {name: 'Cancel', exact: true}).click();
+  await page.getByRole('button', {name: 'Undo', exact: true}).click();
+  checks.push({name: 'inline-checkbox-slider-history', passed: true});
+
+  await select('Modular audio');
+  await page.getByRole('button', {name: 'sine', exact: true}).click();
+  await page.getByRole('menuitem', {name: 'triangle', exact: true}).click();
+  await page.getByRole('button', {name: 'Play patch', exact: true}).click();
+  await page.waitForFunction(() => window.saiGallery.state.audio?.active === true);
+  assert.equal(await page.evaluate(() => window.saiGallery.state.audio.waveform), 'triangle');
+  await page.getByRole('button', {name: 'Stop', exact: true}).click();
+  await page.getByRole('button', {name: 'Undo', exact: true}).click();
+  checks.push({name: 'inline-dropdown-audio', passed: true});
+
+  await select('Dataflow & ETL');
+  await page.getByRole('button', {name: 'Edit Dataset (JSON)', exact: true}).click();
+  const rowsInput = page.getByRole('alertdialog').getByRole('textbox');
+  await rowsInput.click(); await rowsInput.fill('{}');
+  await page.getByRole('button', {name: 'Apply', exact: true}).click();
+  await hasText('Expected a JSON array.');
+  await rowsInput.click();
+  await rowsInput.fill('[{"name":"Test","score":90}]');
+  await page.getByRole('button', {name: 'Apply', exact: true}).click();
+  await run(); await hasText('1 rows made it through.');
+  await page.getByRole('button', {name: 'Undo', exact: true}).click();
+  await run(); await hasText('3 rows made it through.');
+  checks.push({name: 'inline-json-validation-history', passed: true});
+
   await select('Workflow & process');
   await editDocument(document => { document.spaces.main.nodes.expense.data.value = 1200; });
   await run(); await hasText('Manager review required');
   await page.getByRole('button', {name: 'Undo', exact: true}).isDisabled().then(disabled => assert.ok(disabled, 'Import resets history'));
   await page.getByRole('button', {name: 'Source', exact: true}).click();
-  await page.getByRole('textbox').click();
-  await page.getByRole('textbox').fill('{');
+  await page.getByRole('alertdialog').getByRole('textbox').click();
+  await page.getByRole('alertdialog').getByRole('textbox').fill('{');
   await page.getByRole('button', {name: 'Apply', exact: true}).click();
   await until(async () => /SyntaxError|FormatException|Unexpected/.test(await snapshot()), 'Malformed JSON must show validation feedback');
   await capture('invalid-json');
@@ -138,8 +205,8 @@ try {
   for (const [width, height] of [[1024, 768], [1440, 600], [390, 844]]) {
     await page.setViewportSize({width, height}); await page.waitForTimeout(350);
     if (width < 1180) {
-      await page.getByRole('button', {name: 'Preview and properties', exact: true}).click();
-      await hasText('NODE PROPERTIES'); await page.waitForTimeout(400); await capture(`responsive-${width}-preview`);
+      await page.getByRole('button', {name: 'Preview', exact: true}).click();
+      await hasText('PREVIEW'); assert.ok(!(await snapshot()).includes('NODE PROPERTIES')); await page.waitForTimeout(400); await capture(`responsive-${width}-preview`);
       await page.keyboard.press('Escape');
       await page.waitForTimeout(400);
     }

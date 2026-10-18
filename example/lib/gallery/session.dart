@@ -137,6 +137,8 @@ class GallerySession extends ChangeNotifier {
     UpdateNodeDataCommand(gallerySpace, node.id, {
       field.id: value,
     }, merge: true),
+    label: 'Edit field',
+    coalesceKey: 'field:${node.id}:${field.id}',
   );
 
   void loadJson(String source) {

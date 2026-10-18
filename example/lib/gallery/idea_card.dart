@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sai_nodes/sai_nodes.dart';
+import 'inline_field.dart';
 
 /// A relationship card, with the same geometry and anchors as the canvas model.
 class IdeaCard extends StatelessWidget {
@@ -8,10 +9,12 @@ class IdeaCard extends StatelessWidget {
     required this.model,
     required this.color,
     required this.isRoot,
+    required this.onChanged,
   });
   final GraphNodeViewModel model;
   final Color color;
   final bool isRoot;
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
@@ -61,15 +64,12 @@ class IdeaCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 7),
-                      Text(
-                        '${model.node.data['label'] ?? model.label}',
+                      InlineText(
+                        key: ValueKey('idea-label-${model.node.id}'),
+                        value: '${model.node.data['label'] ?? model.label}',
+                        label: 'Idea text',
                         maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          height: 1.4,
-                        ),
+                        onChanged: onChanged,
                       ),
                     ],
                   ),
