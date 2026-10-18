@@ -1,0 +1,70 @@
+name: Graph playground
+
+on:
+  push:
+    branches: [main]
+    paths: ['example/**', 'packages/**', 'pubspec.yaml', 'tool/browser/**', '.github/workflows/pages.yml']
+  pull_request:
+    branches: [main]
+    paths: ['example/**', 'packages/**', 'pubspec.yaml', 'tool/browser/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: playground-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze --no-pub
+      - name: Verify example hosts and responsive editor
+        working-directory: example
+        run: flutter test --no-pub
+      - name: Build self-hosted web assets
+        working-directory: example
+        run: flutter build web --release --no-pub --no-web-resources-cdn --no-wasm-dry-run --target lib/gallery_main.dart --base-href=/${{ github.event.repository.name }}/
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tool/browser/package-lock.json
+      - working-directory: tool/browser
+        run: npm ci
+      - working-directory: tool/browser
+        run: npx playwright install --with-deps chromium
+      - name: Exercise production gallery in Chromium
+        run: node tool/browser/verify_gallery.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gallery-browser-evidence
+          path: .tmp/gallery-browser/
+          if-no-files-found: ignore
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: example/build/web
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - uses: actions/deploy-pages@v4
+        id: deployment
