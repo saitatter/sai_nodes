@@ -27,7 +27,8 @@ parent–child relationships update its outline automatically, including undo/re
 Edit text directly on idea cards and use node checkboxes, dropdowns and bounded
 sliders to change values. JSON fields open a validated editor from the node. All
 field edits use document commands and support undo/redo. There is no separate
-properties inspector. Drag node headers, connect typed ports, add nodes, delete
+properties inspector. Right-click opens the editor menu; the web host disables
+the native browser menu. Drag node headers, connect typed ports, add nodes, delete
 the selection from the toolbar, change routing, fit, toggle the minimap or reset.
 Source opens editable graph JSON with copy/import. A failed import leaves the
 document unchanged. Examples support at most 100 nodes and 200 connections.
