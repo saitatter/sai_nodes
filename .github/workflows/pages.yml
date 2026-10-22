@@ -50,7 +50,7 @@ jobs:
           name: gallery-browser-evidence
           path: .tmp/gallery-browser/
           if-no-files-found: ignore
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: example/build/web
 
