@@ -33,7 +33,7 @@ jobs:
       - name: Build self-hosted web assets
         working-directory: example
         run: flutter build web --release --no-pub --no-web-resources-cdn --no-wasm-dry-run --target lib/gallery_main.dart --base-href=/${{ github.event.repository.name }}/
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
