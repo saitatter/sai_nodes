@@ -44,7 +44,7 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Exercise production gallery in Chromium
         run: node tool/browser/verify_gallery.mjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: gallery-browser-evidence
